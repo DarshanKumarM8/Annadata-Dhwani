@@ -38,7 +38,11 @@ async function request(method: string, path: string, body?: BodyInit, headers: R
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     body,
-    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
+    headers: {
+      "ngrok-skip-browser-warning": "true",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
   });
   const text = await res.text();
   let data: any = null;

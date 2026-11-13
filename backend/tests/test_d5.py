@@ -22,6 +22,7 @@ pytestmark = pytest.mark.skipif(not STACK_UP, reason="docker compose stack (Post
 async def teardown5() -> None:
     c = await asyncpg.connect(settings.database_url)
     cl = "(SELECT id FROM clusters WHERE collection_point_id = $1::uuid)"
+    await c.execute("DELETE FROM call_jobs WHERE phone LIKE $1", PREFIX + "%")
     await c.execute(f"UPDATE clusters SET best_bid_id = NULL WHERE collection_point_id = $1::uuid", CP)
     await c.execute(f"DELETE FROM deals WHERE cluster_id IN {cl}", CP)
     await c.execute(f"DELETE FROM bid_responses WHERE bid_id IN (SELECT id FROM bids WHERE cluster_id IN {cl})", CP)

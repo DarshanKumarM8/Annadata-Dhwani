@@ -18,7 +18,7 @@ import asyncpg
 from .. import db
 from ..api.auth import ApiError
 from ..config import settings
-from . import clustering, events, views
+from . import clustering, events, jobs, views
 
 log = logging.getLogger("bidding")
 MIN_STEP = Decimal(10)
@@ -122,6 +122,7 @@ async def close_auction(pool, cluster_id: str) -> str | None:
             await conn.execute("""INSERT INTO bid_responses (bid_id, listing_id)
                                   SELECT $1, id FROM listings WHERE cluster_id = $2 AND status = 'ACTIVE'
                                   ON CONFLICT DO NOTHING""", c["best_bid_id"], c["id"])
+            await jobs.enqueue_bid_offers(conn, c["best_bid_id"], c["id"])        # one call per lot
             buyer = await conn.fetchval("SELECT buyer_id::text FROM bids WHERE id = $1", c["best_bid_id"])
             seqs.append(await events.emit(conn, "bid.confirming", {
                 "cluster_id": str(c["id"]), "bid_id": str(c["best_bid_id"]), "for_buyer": buyer,
@@ -164,6 +165,7 @@ async def resolve_round(pool, bid_id: str, deadline_passed: bool = False) -> str
             await conn.execute("""UPDATE bid_responses SET response = 'NO_ANSWER' WHERE bid_id = $1
                                   AND response = 'PENDING'""", b["id"])
             prog = await _progress(conn, b["id"])
+            await jobs.cancel_for_bid(conn, b["id"])                  # stop calling farmers for a settled round
             if Decimal(str(prog["accepted_qtl"])) >= b["min_qty_qtl"] and prog["accepted_qtl"] > 0:
                 outcome = await _make_deal(conn, c, b, prog, seqs)
             else:

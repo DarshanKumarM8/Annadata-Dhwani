@@ -78,6 +78,24 @@ class PgDeps:
             log.exception("get_floor failed")
             return None
 
+    async def get_offer(self, bid_id: str, listing_id: str) -> dict | None:
+        """The offer to read out, or None if the round is settled or this lot already answered."""
+        r = await self.pool.fetchrow("""
+            SELECT b.price_per_qtl, l.qty_qtl, l.crop_code, l.ask_price, f.id AS farmer_id, f.lang, f.district_code
+            FROM bid_responses r JOIN bids b ON b.id = r.bid_id JOIN listings l ON l.id = r.listing_id
+            JOIN farmers f ON f.id = l.farmer_id
+            WHERE r.bid_id = $1::uuid AND r.listing_id = $2::uuid AND r.response = 'PENDING' AND b.status = 'CONFIRMING'""",
+                                     bid_id, listing_id)
+        if not r:
+            return None
+        return {"price": float(r["price_per_qtl"]), "qty": float(r["qty_qtl"]), "crop": r["crop_code"],
+                "ask": float(r["ask_price"]), "farmer_id": str(r["farmer_id"]), "lang": r["lang"],
+                "district_code": r["district_code"]}
+
+    async def record_offer_response(self, bid_id: str, listing_id: str, response: str) -> None:
+        from ..services import bidding
+        await bidding.record_response(self.pool, bid_id, listing_id, response)
+
     async def commit_listing(self, s: dict) -> int:
         return await clustering.commit_listing(self.pool, s)
 

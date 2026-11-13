@@ -43,6 +43,9 @@ class Settings:
     media_dir: Path = ROOT / "media"
     auction_s: int = int(os.getenv("AUCTION_S", "180" if os.getenv("DEMO_MODE", "1") == "1" else "86400"))
     confirm_s: int = int(os.getenv("CONFIRM_S", "90" if os.getenv("DEMO_MODE", "1") == "1" else "7200"))
+    sim_incoming_ring_s: float = float(os.getenv("SIM_INCOMING_RING_S", "30"))
+    job_max_parallel: int = int(os.getenv("JOB_MAX_PARALLEL", "5"))
+    job_backoff_s: tuple = (20, 40, 60) if os.getenv("DEMO_MODE", "1") == "1" else (120, 600, 1800)
     verify_radius_m: int = int(os.getenv("VERIFY_RADIUS_M", "500"))
 
 

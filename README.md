@@ -100,6 +100,24 @@ The farmers' accept/reject round is not wired to phone calls yet: in the demo us
 settles at the deadline (90 s in demo mode). Deal created when accepted quantity reaches the bid's minimum; otherwise the bid fails,
 the cluster returns to BIDDING once, then NO_BID.
 
+D6 (farmers' confirmation calls): closing an auction queues one `BID_OFFER` call per lot in `call_jobs`. The worker (1 s tick) rings the
+farmer's phone, at most 5 calls at once, skips anyone already on a call, honours `DAILY_CALL_BUDGET`, and retries an unanswered
+call after 20/40/60 s in demo mode (2/10/30 min otherwise). On `/sim` the phone rings like a callback; answering reads the offer:
+1 then 1 accepts, 2 rejects, 9 repeats. When every lot has answered (or the 90 s deadline passes) the round settles into a deal or a
+failed bid. `simulate-farmers` still exists as a backup that skips the phone calls. `telephony/base.py` is the provider interface
+that the Exotel adapter (D7) plugs into.
+
+Tests should not share your dev database (a running server's job worker would claim the test jobs). One-time setup, then run
+the suite against the separate database:
+```bash
+docker exec annadata-db-1 psql -U postgres -c "CREATE DATABASE annadata_test"
+docker exec -i annadata-db-1 psql -U postgres -d annadata_test < db/001_schema.sql
+```
+```bash
+cd backend && DATABASE_URL=postgresql://postgres:postgres@localhost:5433/annadata_test python -m pytest
+```
+(use your own port/credentials from `.env`; the tests create the reference rows they need).
+
 Live board for demos: open `http://localhost:8000/demo`, enter `SEED_PASSWORD`, and watch clusters, bids and deals update live.
 The buttons stand in for the agent PWA, buyer screens and farmers' accept calls (a stopgap until those UIs merge).
 Serve the backend to other laptops on the same Wi-Fi with `--host 0.0.0.0` and point their `VITE_API_BASE` / `VITE_WS_BASE` at your IP.

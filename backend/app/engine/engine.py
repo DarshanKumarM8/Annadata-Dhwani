@@ -53,8 +53,24 @@ async def _home(deps, s: dict, prefix: list[str] | None = None) -> Action:
 
 # ---------------------------------------------------------------- start
 
-async def _start(deps, s: dict | None, ev: Event) -> tuple[Action, dict]:
+async def _start_offer(deps, ev: Event) -> tuple[Action, dict | None]:
+    """Outbound BID_OFFER call: read the offer to the farmer whose lot is in the winning bid."""
+    p = ev.job["payload"]
+    offer = await deps.get_offer(p["bid_id"], p["listing_id"])
+    if not offer:                                  # round already settled, or already answered
+        return Action(hangup_now=True), None
+    s = new_session(ev.phone, deps.provider, ev.call_id, deps.now())
+    s.update(kind="BID_OFFER", farmer_id=offer["farmer_id"], district_code=offer["district_code"],
+             lang=offer["lang"] or "kn")
+    s["data"] = {"bid_id": p["bid_id"], "listing_id": p["listing_id"], "job_id": ev.job.get("id"),
+                 "offer": {k: offer[k] for k in ("price", "qty", "crop", "ask")}}
+    return await _enter(deps, s, "OFFER"), s
+
+
+async def _start(deps, s: dict | None, ev: Event) -> tuple[Action, dict | None]:
     now = deps.now()
+    if ev.job and ev.job.get("kind") == "BID_OFFER":
+        return await _start_offer(deps, ev)
     if s and s["state"] not in TERMINAL and s["state"] in RESUMABLE:
         s.update(call_id=ev.call_id, started_at=now, retries=0)
         return flows.build(s["state"], s, ["welcome_back"]), s
@@ -79,11 +95,24 @@ async def _retry(deps, s: dict, invalid: bool) -> Action:
     s["retries"] += 1
     if s["retries"] > MAX_RETRIES:
         s["data"]["failed_input"] = True
+        if s["kind"] == "BID_OFFER":             # nothing recorded: the job queue calls again
+            return await _enter(deps, s, "BYE")
         if await deps.record_failure(s["phone"]) >= FAIL_TICKET_THRESHOLD:   # 3 failed calls in 24 h: get a human
             s["data"]["help_reason"] = "IVR_FAIL_3"
             return await _enter(deps, s, "HELP")
         return await _enter(deps, s, "BYE")
     return flows.build(s["state"], s, ["bad_input"] if invalid else None)
+
+
+async def _answer(deps, s: dict, response: str) -> bool:
+    """Record the farmer's ACCEPT/REJECT (first answer wins). False if it could not be stored."""
+    d = s["data"]
+    try:
+        await deps.record_offer_response(d["bid_id"], d["listing_id"], response)
+        return True
+    except Exception:
+        log.exception("record_offer_response failed")
+        return False
 
 
 async def _apply(deps, s: dict, digits: str) -> Action | None:
@@ -170,6 +199,27 @@ async def _apply(deps, s: dict, digits: str) -> Action | None:
             return await _enter(deps, s, "FINAL")
         if one == "3":
             return await _enter(deps, s, "PRICE")
+        return None
+
+    if st == "OFFER":
+        if one == "1":
+            return await _enter(deps, s, "OFFER_CONFIRM")
+        if one == "9":
+            return await _enter(deps, s, "OFFER")
+        if one == "2":
+            if not await _answer(deps, s, "REJECT"):
+                return await _enter(deps, s, "BYE")
+            d["offer_rejected"] = True
+            return await _enter(deps, s, "BYE")
+        return None
+
+    if st == "OFFER_CONFIRM":              # only an explicit 1 here binds the farmer
+        if one == "1":
+            if not await _answer(deps, s, "ACCEPT"):
+                return await _enter(deps, s, "BYE")
+            return await _enter(deps, s, "DONE_OFFER")
+        if one == "2":
+            return await _enter(deps, s, "OFFER")
         return None
 
     if st == "FINAL":

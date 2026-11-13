@@ -30,7 +30,7 @@ async def load(phone: str) -> dict | None:
     if raw:
         return json.loads(raw)
     row = await db.pool.fetchrow(f"""
-        SELECT * FROM call_sessions WHERE phone = $1 AND kind = 'LISTING' AND ended_at IS NULL
+        SELECT * FROM call_sessions WHERE phone = $1 AND ended_at IS NULL
         AND updated_at > now() - interval '{REHYDRATE_WINDOW}' ORDER BY updated_at DESC LIMIT 1""", phone)
     if not row:
         return None

@@ -1,7 +1,7 @@
 """Prompt table for the LISTING flow (contract C8, plan section 5.4). Owner: Darshan.
 
 SPEC gives the input collection rule per state. build() turns a session into the clips for that state.
-The BID_OFFER states (OFFER, OFFER_CONFIRM, DONE_OFFER) arrive with D6.
+BID_OFFER (D6): OFFER, OFFER_CONFIRM, DONE_OFFER.
 """
 from .actions import Action
 from .audio_shim import digit_clips
@@ -21,6 +21,8 @@ SPEC: dict[str, tuple[int, str, int]] = {
     "PRICE": (5, "#", 10),
     "GUARD": (1, "", 8),
     "FINAL": (1, "", 8),
+    "OFFER": (1, "", 8),
+    "OFFER_CONFIRM": (1, "", 8),
 }
 
 
@@ -61,8 +63,16 @@ def clips_for(state: str, s: dict) -> list[str]:
     if state in ("HELP", "NOT_REGISTERED"):
         head = ["not_registered"] if state == "NOT_REGISTERED" else []
         return head + ["helper_will_call", "helper_code_is", *[f"d_{c}" for c in d["verbal_code"]]]
+    if state == "OFFER":
+        o = d["offer"]
+        return ["offer_intro", *_num(o["price"]), "rupees_per_qtl", "for_your", f"qty_{int(o['qty'])}",
+                f"crop_{o['crop']}", "your_ask_was", *_num(o["ask"]), "rupees_per_qtl", "offer_options"]
+    if state == "OFFER_CONFIRM":
+        return ["offer_confirm"]
+    if state == "DONE_OFFER":
+        return ["offer_done"]
     if state == "BYE":
-        return ["bye"]
+        return ["offer_rejected"] if d.get("offer_rejected") else ["bye"]
     raise ValueError(f"no prompt for state {state}")
 
 

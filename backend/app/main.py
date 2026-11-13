@@ -12,7 +12,7 @@ from . import cache, db
 from .config import ROOT, settings
 from .engine.deps import PgDeps
 from .api import agent, auth, buyer, clusters, ops, ws
-from .services import bidding, sweeper
+from .services import bidding, jobs, sweeper
 from .telephony import sim
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -28,10 +28,12 @@ async def lifespan(app: FastAPI):
     sweep = asyncio.create_task(sweeper.run())
     hub = asyncio.create_task(ws.hub.run())
     auctions = asyncio.create_task(bidding.run())
+    worker = asyncio.create_task(jobs.run())
     yield
     sweep.cancel()
     hub.cancel()
     auctions.cancel()
+    worker.cancel()
     await cache.close()
     await db.close()
 

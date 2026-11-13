@@ -159,8 +159,8 @@ async def _handle_missed(deps, phone: str, sid: str) -> None:
         log.info("missed call from %s not answered: %s", phone, verdict)
         return
     farmer = await deps.get_farmer(phone)
-    if not farmer and not await cache.redis.set(f"unk:{phone}", "1", nx=True, ex=86400):
-        return                                                                 # unknown caller: one callback a day
+    if not farmer and not await cache.redis.set(f"unk:{phone}", "1", nx=True, ex=settings.unknown_cb_ttl_s):
+        return                                       # unknown caller: one callback a day (a minute in demo mode)
     async with db.pool.acquire() as conn:
         await jobs.enqueue_callback(conn, phone, farmer["id"] if farmer else None, sid)
 

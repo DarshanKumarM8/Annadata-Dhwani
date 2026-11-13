@@ -53,6 +53,7 @@ class Settings:
     exophone: str = os.getenv("EXOPHONE", "")
     exotel_app_id: str = os.getenv("EXOTEL_APP_ID", "")
     exotel_api_host: str = os.getenv("EXOTEL_API_HOST", "api.exotel.com")
+    unknown_cb_ttl_s: int = int(os.getenv("UNKNOWN_CB_TTL_S", "60" if os.getenv("DEMO_MODE", "1") == "1" else "86400"))
     verify_radius_m: int = int(os.getenv("VERIFY_RADIUS_M", "500"))
 
 

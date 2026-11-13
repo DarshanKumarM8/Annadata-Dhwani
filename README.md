@@ -90,6 +90,16 @@ same transaction as the change, so a reconnecting client with `since` gets what 
 after a database reset, it receives `{"type":"resync"}` and should refetch the REST lists. Bids, deals and the agent/admin
 routes are D5.
 
+D5 (the trade, end to end): agent login `POST /api/auth/agent/login` (seeded `+919800000099`, PIN `1234`), `GET /api/agent/tasks`,
+`POST /api/agent/clusters/{id}/verification` (multipart; within 500 m, capture under 10 min old; READY becomes BIDDING and starts the
+3-minute demo auction), `POST /api/clusters/{id}/bids` (needs `Idempotency-Key`; each bid beats the best by Rs 10), `GET /api/bids/mine`,
+`GET /api/deals/mine`, `POST /api/deals/{id}/payment-reported`, `POST /api/agent/deals/{id}/payment-confirmed`, triage `claim`/`bridge`.
+Admin (login `admin@demo.test`): `POST /api/admin/clusters/{id}/close-auction`, `GET /api/ops/calls`, `GET /api/ops/dtmf`, the Redis flush.
+The farmers' accept/reject round is not wired to phone calls yet: in the demo use
+`POST /api/admin/clusters/{id}/simulate-farmers` with `{"accept": true}` (or `{"accepted_lots": 3}`); if nobody answers, the round
+settles at the deadline (90 s in demo mode). Deal created when accepted quantity reaches the bid's minimum; otherwise the bid fails,
+the cluster returns to BIDDING once, then NO_BID.
+
 ## Folder ownership (only the owner edits a folder)
 
 | Path | Owner |

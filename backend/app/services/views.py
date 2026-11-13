@@ -31,6 +31,8 @@ def shape(r, buyer_id=None) -> dict:
         best = {"price_per_qtl": float(r["best_price"])}
         if buyer_id is not None:
             best["mine"] = str(r["best_buyer"]) == str(buyer_id)
+        else:                       # event payload: the WebSocket hub turns buyer_id into a per-viewer "mine"
+            best["buyer_id"] = str(r["best_buyer"])
     return {"id": r["id"], "code": r["code"], "crop_code": r["crop_code"], "crop_name": r["crop_name"],
             "district": r["district"],
             "collection_point": {"name": r["cp_name"], "lat": r["lat"], "lon": r["lon"]},
@@ -46,10 +48,11 @@ async def cluster_view(conn, cluster_id, buyer_id=None) -> dict | None:
     return shape(r, buyer_id) if r else None
 
 
-async def cluster_list(conn, statuses=None, crop=None, buyer_id=None) -> list[dict]:
+async def cluster_list(conn, statuses=None, crop=None, buyer_id=None, fpo_id=None) -> list[dict]:
     rows = await conn.fetch(CLUSTER_SQL + """ WHERE ($1::text[] IS NULL OR c.status = ANY($1))
-                                              AND ($2::text IS NULL OR c.crop_code = $2) ORDER BY c.code""",
-                            statuses, crop)
+                                              AND ($2::text IS NULL OR c.crop_code = $2)
+                                              AND ($3::uuid IS NULL OR cp.fpo_id = $3) ORDER BY c.code""",
+                            statuses, crop, fpo_id)
     return [shape(r, buyer_id) for r in rows]
 
 

@@ -21,7 +21,7 @@ async def recompute_cluster(conn, cluster_id) -> None:
           min_ask = a.mn, wavg_ask = a.wavg, version = c.version + 1, updated_at = now()
         FROM (SELECT SUM(qty_qtl) q, COUNT(*) n, MIN(ask_price) mn,
                      ROUND(SUM(qty_qtl * ask_price) / NULLIF(SUM(qty_qtl), 0), 2) wavg
-              FROM listings WHERE cluster_id = $1 AND status = 'ACTIVE') a
+              FROM listings WHERE cluster_id = $1 AND status IN ('ACTIVE','ACCEPTED','SOLD')) a
         WHERE c.id = $1""", cluster_id)
 
 
@@ -33,6 +33,20 @@ async def _become_ready(conn, cluster_id) -> bool:
     return bool(n)
 
 
+async def lock_key(conn, collection_point_id, crop: str) -> None:
+    await conn.execute("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", f"{collection_point_id}:{crop}")
+
+
+async def join_cluster(conn, collection_point_id, crop: str):
+    """Find the joinable (OPEN/READY) cluster for the key or create one. Caller holds lock_key()."""
+    cid = await conn.fetchval("""SELECT id FROM clusters WHERE collection_point_id = $1 AND crop_code = $2
+                                 AND status IN ('OPEN','READY')""", collection_point_id, crop)
+    if not cid:
+        cid = await conn.fetchval("INSERT INTO clusters (collection_point_id, crop_code) VALUES ($1, $2) RETURNING id",
+                                  collection_point_id, crop)
+    return cid
+
+
 async def commit_listing(pool, s: dict) -> int:
     """Create (or return) the listing for this call session. Idempotent on session id. Returns the listing code."""
     d = s["data"]
@@ -40,8 +54,7 @@ async def commit_listing(pool, s: dict) -> int:
     seqs: list[int] = []
     async with pool.acquire() as conn, conn.transaction():
         f = await conn.fetchrow("SELECT collection_point_id FROM farmers WHERE id = $1", s["farmer_id"])
-        await conn.execute("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-                           f"{f['collection_point_id']}:{d['crop']}")
+        await lock_key(conn, f["collection_point_id"], d["crop"])
         # listings.session_id references call_sessions: write a minimal row (the checkpoint keeps it current)
         await conn.execute("""
             INSERT INTO call_sessions (id, phone, farmer_id, kind, provider, provider_call_id, state, data, version)
@@ -55,13 +68,7 @@ async def commit_listing(pool, s: dict) -> int:
         if await conn.fetchval("""SELECT 1 FROM listings WHERE farmer_id = $1 AND crop_code = $2
                                   AND status IN ('PENDING_CONFIRM','ACTIVE','ACCEPTED')""", s["farmer_id"], d["crop"]):
             raise ListingExists()
-        cluster_id = await conn.fetchval("""
-            SELECT id FROM clusters WHERE collection_point_id = $1 AND crop_code = $2
-            AND status IN ('OPEN','READY')""", f["collection_point_id"], d["crop"])
-        if not cluster_id:
-            cluster_id = await conn.fetchval(
-                "INSERT INTO clusters (collection_point_id, crop_code) VALUES ($1, $2) RETURNING id",
-                f["collection_point_id"], d["crop"])
+        cluster_id = await join_cluster(conn, f["collection_point_id"], d["crop"])
         floor = d.get("floor")
         row = await conn.fetchrow("""
             INSERT INTO listings (farmer_id, cluster_id, crop_code, qty_qtl, ask_price, afpp_at_listing,

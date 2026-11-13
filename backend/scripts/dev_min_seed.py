@@ -66,6 +66,9 @@ async def main(floor: int | None, reset: bool) -> None:
                        ("admin@demo.test", "Platform Admin")):
         await c.execute("""INSERT INTO buyers (org_name,email,password_hash,phone,status)
                            VALUES ($1,$2,$3,'+910000000000','APPROVED') ON CONFLICT DO NOTHING""", org, email, pw)
+    pin = bcrypt.hashpw(os.getenv("AGENT_PIN", "1234").encode(), bcrypt.gensalt(rounds=10)).decode()
+    await c.execute("""INSERT INTO agents (fpo_id,name,phone,pin_hash) VALUES ($1::uuid,'Kavya','+919800000099',$2)
+                       ON CONFLICT DO NOTHING""", FPO_ID, pin)
     if floor:
         afpp = int((floor * 0.98 - 60) // 10 * 10)
         await r.set("floor:KA-MANDYA:ragi", json.dumps({"modal_price": float(floor), "afpp": afpp,

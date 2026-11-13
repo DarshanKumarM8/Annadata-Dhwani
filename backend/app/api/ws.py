@@ -8,6 +8,7 @@
   - messages are {"seq","type","payload"}. Delivery is at-least-once; clients drop a seq they have seen.
 """
 import asyncio
+import copy
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -23,6 +24,25 @@ POLL_S = 2.0
 
 VISIBLE = {None: {"all"}, "buyer": {"all", "buyer"}, "agent": {"all", "agent"},
            "admin": {"all", "buyer", "agent", "ops"}}
+
+
+def render(m: dict, role: str | None, sub: str | None) -> dict | None:
+    """Per-viewer view of an event. `for_buyer` targets one buyer (admin sees all); buyer ids never reach clients,
+    they become `mine` / `buyer_is_you` for the viewer."""
+    p = m["payload"]
+    target = p.get("for_buyer")
+    if target and role != "admin" and target != sub:
+        return None
+    bb = p.get("best_bid") if isinstance(p, dict) else None
+    if not target and not (isinstance(bb, dict) and "buyer_id" in bb) and "buyer_id" not in p:
+        return m
+    p = copy.deepcopy(p)
+    p.pop("for_buyer", None)
+    if isinstance(p.get("best_bid"), dict) and "buyer_id" in p["best_bid"]:
+        p["best_bid"]["mine"] = p["best_bid"].pop("buyer_id") == sub
+    if m["type"] == "bid.placed":
+        p["buyer_is_you"] = p.pop("buyer_id", None) == sub
+    return {"seq": m["seq"], "type": m["type"], "payload": p}
 
 
 class Hub:
@@ -76,6 +96,7 @@ async def ws(websocket: WebSocket, token: str | None = None, since: int = 0):
     await websocket.accept()
     claims = decode(token)
     role = claims["role"] if claims else None
+    sub = claims["sub"] if claims else None
     allowed = VISIBLE.get(role, {"all"})
     q: asyncio.Queue = asyncio.Queue(maxsize=1000)
     hub.conns[q] = role                                         # register first, so nothing falls in a gap
@@ -91,15 +112,18 @@ async def ws(websocket: WebSocket, token: str | None = None, since: int = 0):
         else:
             for r in rows:
                 sent = r["seq"]
-                if r["audience"] in allowed:
-                    await websocket.send_json({"seq": r["seq"], "type": r["type"], "payload": r["payload"]})
+                out = render({"seq": r["seq"], "type": r["type"], "payload": r["payload"]}, role, sub)                     if r["audience"] in allowed else None
+                if out:
+                    await websocket.send_json(out)
         while True:
             m = await q.get()
             if m is None:
                 break
             if m["seq"] > sent:
                 sent = m["seq"]
-                await websocket.send_json(m)
+                out = render(m, role, sub)
+                if out:
+                    await websocket.send_json(out)
     except (WebSocketDisconnect, RuntimeError):
         pass
     finally:

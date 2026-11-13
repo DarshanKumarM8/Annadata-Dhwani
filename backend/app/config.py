@@ -40,6 +40,10 @@ class Settings:
     call_cap_s: int = int(os.getenv("CALL_CAP_S", "240"))
     session_ttl_s: int = 1800
     audio_dir: Path = ROOT / "audio"
+    media_dir: Path = ROOT / "media"
+    auction_s: int = int(os.getenv("AUCTION_S", "180" if os.getenv("DEMO_MODE", "1") == "1" else "86400"))
+    confirm_s: int = int(os.getenv("CONFIRM_S", "90" if os.getenv("DEMO_MODE", "1") == "1" else "7200"))
+    verify_radius_m: int = int(os.getenv("VERIFY_RADIUS_M", "500"))
 
 
 settings = Settings()

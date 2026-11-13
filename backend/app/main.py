@@ -10,8 +10,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from . import cache, db
 from .config import ROOT, settings
 from .engine.deps import PgDeps
-from .api import auth, clusters, ops, ws
-from .services import sweeper
+from .api import agent, auth, buyer, clusters, ops, ws
+from .services import bidding, sweeper
 from .telephony import sim
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -26,9 +26,11 @@ async def lifespan(app: FastAPI):
     app.state.deps = PgDeps(pool)
     sweep = asyncio.create_task(sweeper.run())
     hub = asyncio.create_task(ws.hub.run())
+    auctions = asyncio.create_task(bidding.run())
     yield
     sweep.cancel()
     hub.cancel()
+    auctions.cancel()
     await cache.close()
     await db.close()
 
@@ -39,6 +41,8 @@ app.include_router(sim.router)
 app.include_router(ops.router)
 app.include_router(auth.router)
 app.include_router(clusters.router)
+app.include_router(buyer.router)
+app.include_router(agent.router)
 app.include_router(ws.router)
 
 
@@ -63,14 +67,26 @@ async def audio_mix(name: str):
     return FileResponse(SAMPLE, media_type="audio/wav")
 
 
+@app.get("/media/v/{name}")
+async def media(name: str):
+    f = settings.media_dir / "v" / name
+    if f.is_file() and f.resolve().parent == (settings.media_dir / "v").resolve():
+        return FileResponse(f)
+    return FileResponse(ROOT / "contracts" / "fixtures" / "sample.svg", media_type="image/svg+xml")
+
+
 @app.get("/health")
 async def health():
     out = {"db": "down", "redis": "down", "provider": settings.provider}
+    mix = settings.audio_dir / "mix"
+    out["tts_clips"] = len(list(mix.glob("*.wav"))) if mix.is_dir() else 0
     try:
         await db.pool.fetchval("SELECT 1")
         out["db"] = "ok"
         await cache.redis.ping()
         out["redis"] = "ok"
+        age = await db.pool.fetchval("SELECT current_date - max(price_date) FROM mandi_prices")
+        out["price_age_days"] = age
     except Exception:
         return JSONResponse(out, status_code=503)
     return out

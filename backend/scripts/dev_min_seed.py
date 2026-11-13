@@ -70,6 +70,14 @@ async def main(floor: int | None, reset: bool) -> None:
         VALUES ($1::uuid,$2,'Dev Farmer',$3::uuid,'Keregodu','KA-MANDYA',
                 ST_SetSRID(ST_MakePoint(76.91,12.53),4326)::geography,$4::uuid) ON CONFLICT DO NOTHING""",
                     FARMER_ID, PHONE, FPO_ID, CP_ID)
+    # the eight farmers shown in the phone simulator page (frontend/src/routes/Sim.tsx)
+    for n, (nm, vill) in enumerate([("Ramesh", "Keregodu"), ("Lakshmi", "Keregodu"), ("Manju", "Hosahalli"),
+                                    ("Savitha", "Hosahalli"), ("Krishnappa", "Keregodu"), ("Meena", "Hosahalli"),
+                                    ("Rajesh", "Keregodu"), ("Geetha", "Hosahalli")], start=1):
+        await c.execute("""INSERT INTO farmers (phone,name,fpo_id,village,district_code,geog,collection_point_id)
+            VALUES ($1,$2,$3::uuid,$4,'KA-MANDYA',ST_SetSRID(ST_MakePoint(76.91,12.53),4326)::geography,$5::uuid)
+            ON CONFLICT (phone) DO UPDATE SET name = EXCLUDED.name, village = EXCLUDED.village""",
+                        f"+91980000000{n}", nm, FPO_ID, vill, CP_ID)
     pw = bcrypt.hashpw(os.getenv("SEED_PASSWORD", "change-me").encode(), bcrypt.gensalt(rounds=10)).decode()
     for email, org in (("buyer1@demo.test", "Mysuru Grain Traders"), ("buyer2@demo.test", "Bengaluru Agro Foods"),
                        ("admin@demo.test", "Platform Admin")):

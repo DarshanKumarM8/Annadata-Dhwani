@@ -204,9 +204,19 @@ export const Phone: React.FC<PhoneProps> = ({
     [stopAudio, sendWs, addLog]
   );
 
-  // ---------------------------------------------------------------------------
-  // Server message handler
-  // ---------------------------------------------------------------------------
+  /**
+   * WebSocket protocol — Contract C6 + server extensions:
+   *
+   *   Known server→client types:
+   *     "ring"   – incoming call
+   *     "play"   – play audio + collect digits
+   *     "hangup" – call ended by server
+   *
+   *   Extended server→client types (must not crash the simulator):
+   *     "info"   – informational, e.g. { t:"info", reason:"DUPLICATE|RATE_LIMITED|BUSY|BUDGET" }
+   *
+   *   Any other unknown type is shown in the log panel and otherwise ignored.
+   */
   const handleServerMessage = useCallback(
     (msg: Record<string, unknown>) => {
       const t = msg.t as string;
@@ -225,6 +235,11 @@ export const Phone: React.FC<PhoneProps> = ({
         setCallId(null);
         setIvrState("");
         stopCallTimer();
+
+      } else {
+        // Unknown / extended message type — log it, never crash.
+        // "info" with reason=DUPLICATE|RATE_LIMITED|BUSY|BUDGET arrives here.
+        // Already logged by ws.onmessage; nothing else to do.
       }
     },
     [playAudio, stopAudio] // eslint-disable-line

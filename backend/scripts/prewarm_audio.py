@@ -207,8 +207,13 @@ async def generate_clip(
         print(f"  [FAIL] {lang}/{clip_id}: {exc}", file=sys.stderr)
         return "failed"
     finally:
-        if mp3_tmp.exists():
-            mp3_tmp.unlink(missing_ok=True)
+        # Windows: the mp3 may still be held briefly by the FFmpeg subprocess.
+        # Swallow PermissionError — the file will be cleaned up on the next run.
+        try:
+            if mp3_tmp.exists():
+                mp3_tmp.unlink(missing_ok=True)
+        except PermissionError:
+            pass
 
 
 # ---------------------------------------------------------------------------

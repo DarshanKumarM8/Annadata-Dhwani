@@ -35,6 +35,7 @@ class Settings:
     cb_limit_10m: int = int(os.getenv("RL_CB_10M", "3"))      # callbacks per number per 10 min
     cb_limit_day: int = int(os.getenv("RL_CB_DAY", "6"))       # callbacks per number per day
     daily_call_budget: int = int(os.getenv("DAILY_CALL_BUDGET", "200"))
+    jwt_secret: str = os.getenv("JWT_SECRET", "change-me-32-random-chars")
     fail_ticket_threshold: int = 3
     call_cap_s: int = int(os.getenv("CALL_CAP_S", "240"))
     session_ttl_s: int = 1800

@@ -82,6 +82,14 @@ Reliability (D3): every transition is checkpointed to Postgres `call_sessions`, 
 Tests: `cd backend && python -m pytest`. The engine tests need nothing; `test_reliability.py` uses the compose stack
 (Postgres + Valkey) and skips itself when it is not running. Set `SIM_RING_MIN=0.2 SIM_RING_MAX=0.3 SIM_HANGUP_DELAY=0.3` for quicker test calls.
 
+D4 (clusters, events, live feed): `POST /api/auth/buyer/login` (seeded `buyer1@demo.test`, `buyer2@demo.test`,
+`admin@demo.test`, password = `SEED_PASSWORD` in `.env`), `GET /api/clusters?status=OPEN,READY&crop=`, `GET /api/clusters/{id}`
+(all need `Authorization: Bearer <token>`), and the dashboard feed `ws://localhost:8000/ws?token=<jwt>&since=<seq>`.
+A cluster turns READY at 20 quintals and announces one VERIFY task to agents. Events are stored in the `events` table in the
+same transaction as the change, so a reconnecting client with `since` gets what it missed; if it is too far behind, or ahead
+after a database reset, it receives `{"type":"resync"}` and should refetch the REST lists. Bids, deals and the agent/admin
+routes are D5.
+
 ## Folder ownership (only the owner edits a folder)
 
 | Path | Owner |

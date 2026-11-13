@@ -10,12 +10,14 @@ unless the keys match (district KA-MANDYA, crops ragi / paddy_common / maize).
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import asyncpg  # noqa: E402
+import bcrypt  # noqa: E402
 import redis.asyncio as aioredis  # noqa: E402
 
 from app.config import settings  # noqa: E402
@@ -59,6 +61,11 @@ async def main(floor: int | None, reset: bool) -> None:
         VALUES ($1::uuid,$2,'Dev Farmer',$3::uuid,'Keregodu','KA-MANDYA',
                 ST_SetSRID(ST_MakePoint(76.91,12.53),4326)::geography,$4::uuid) ON CONFLICT DO NOTHING""",
                     FARMER_ID, PHONE, FPO_ID, CP_ID)
+    pw = bcrypt.hashpw(os.getenv("SEED_PASSWORD", "change-me").encode(), bcrypt.gensalt(rounds=10)).decode()
+    for email, org in (("buyer1@demo.test", "Mysuru Grain Traders"), ("buyer2@demo.test", "Bengaluru Agro Foods"),
+                       ("admin@demo.test", "Platform Admin")):
+        await c.execute("""INSERT INTO buyers (org_name,email,password_hash,phone,status)
+                           VALUES ($1,$2,$3,'+910000000000','APPROVED') ON CONFLICT DO NOTHING""", org, email, pw)
     if floor:
         afpp = int((floor * 0.98 - 60) // 10 * 10)
         await r.set("floor:KA-MANDYA:ragi", json.dumps({"modal_price": float(floor), "afpp": afpp,

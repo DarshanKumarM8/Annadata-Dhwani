@@ -3,14 +3,14 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 from . import cache, db
 from .config import ROOT, settings
 from .engine.deps import PgDeps
-from .api import ops
+from .api import auth, clusters, ops, ws
 from .services import sweeper
 from .telephony import sim
 
@@ -25,8 +25,10 @@ async def lifespan(app: FastAPI):
     await cache.connect()
     app.state.deps = PgDeps(pool)
     sweep = asyncio.create_task(sweeper.run())
+    hub = asyncio.create_task(ws.hub.run())
     yield
     sweep.cancel()
+    hub.cancel()
     await cache.close()
     await db.close()
 
@@ -35,6 +37,21 @@ app = FastAPI(title="Annadata Dhwani", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(sim.router)
 app.include_router(ops.router)
+app.include_router(auth.router)
+app.include_router(clusters.router)
+app.include_router(ws.router)
+
+
+@app.exception_handler(auth.ApiError)
+async def api_error(_: Request, e: auth.ApiError):
+    return JSONResponse(e.body, status_code=e.status)
+
+
+@app.exception_handler(HTTPException)
+async def http_error(_: Request, e: HTTPException):
+    # contract error shape is {"error": CODE, ...}, not FastAPI's {"detail": ...}
+    return JSONResponse(e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)},
+                        status_code=e.status_code)
 
 
 @app.get("/audio/mix/{name}")

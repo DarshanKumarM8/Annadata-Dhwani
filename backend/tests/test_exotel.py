@@ -103,6 +103,7 @@ def test_number_and_digit_cleaning():
     assert exotel.normalise("8123456789") == "+918123456789"
     assert exotel.normalise("12345") is None and exotel.normalise("") is None
     assert exotel.strip_digits('"17"') == "17" and exotel.strip_digits("") == "" and exotel.strip_digits(' "1" ') == "1"
+    assert exotel.strip_digits('"15#"') == "15" and exotel.strip_digits("15#") == "15" and exotel.strip_digits('"#"') == ""
 
 
 async def test_wrong_secret_and_unknown_calls_are_refused(env):
@@ -265,3 +266,17 @@ async def test_simulator_farmers_still_ring_on_the_browser_while_exotel_is_the_p
         assert base.get_provider("+919800000099") is sim
     finally:
         sim.LINES.pop("+919800000099", None)
+
+
+async def test_digits_with_terminator_quotes_and_capital_parameter_name_are_understood(env):
+    pool, fake, http = env
+    (phone, _), = await setup_farmers(1)
+    sid = (await start_callback(pool, http, phone))["provider_call_id"]
+    await gather(http, sid, 1)
+    assert (await http.get(url("digits"), params={"CallSid": sid, "step": 1, "Digits": '"1"'})).status_code == 200      # language
+    await gather(http, sid, 2)
+    assert (await http.get(url("digits"), params={"CallSid": sid, "step": 2, "digits": "1#"})).status_code == 200       # consent, with #
+    await gather(http, sid, 3)
+    assert (await http.get(url("digits"), params={"CallSid": sid, "step": 3, "digits": '"1#"'})).status_code == 200     # crop
+    g = await gather(http, sid, 4)
+    assert g["max_input_digits"] == 2                                       # we are at the quantity prompt: all three keys were accepted

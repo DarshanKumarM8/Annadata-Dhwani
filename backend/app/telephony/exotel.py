@@ -60,8 +60,8 @@ def normalise(raw: str) -> str | None:
 
 
 def strip_digits(raw: str) -> str:
-    """Exotel wraps the collected digits in literal quotes: '"17"' -> '17'."""
-    return (raw or "").strip().strip('"').strip("'").strip()
+    """Exotel wraps the collected digits in literal quotes ('"17"' -> '17') and may leave the terminator on ('15#' -> '15')."""
+    return (raw or "").strip().strip('"').strip("'").strip().rstrip("#").strip()
 
 
 async def _params(request: Request) -> dict:
@@ -215,7 +215,7 @@ async def digits(secret: str, request: Request):
         return _passthru(int(seen))
     if await cache.redis.exists(f"exo:busy:{sid}"):
         return _passthru(404)
-    d = strip_digits(p.get("digits", ""))
+    d = strip_digits(p.get("digits") or p.get("Digits") or "")             # the parameter name is not documented consistently
     try:
         a = await process(request.app.state.deps, phone,
                           Event(kind="digits" if d else "timeout", digits=d, call_id=sid, event_id=f"{sid}:d{step}",

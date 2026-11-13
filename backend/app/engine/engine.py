@@ -59,7 +59,7 @@ async def _start_offer(deps, ev: Event) -> tuple[Action, dict | None]:
     offer = await deps.get_offer(p["bid_id"], p["listing_id"])
     if not offer:                                  # round already settled, or already answered
         return Action(hangup_now=True), None
-    s = new_session(ev.phone, deps.provider, ev.call_id, deps.now())
+    s = new_session(ev.phone, ev.provider or deps.provider, ev.call_id, deps.now())
     s.update(kind="BID_OFFER", farmer_id=offer["farmer_id"], district_code=offer["district_code"],
              lang=offer["lang"] or "kn")
     s["data"] = {"bid_id": p["bid_id"], "listing_id": p["listing_id"], "job_id": ev.job.get("id"),
@@ -76,7 +76,7 @@ async def _start(deps, s: dict | None, ev: Event) -> tuple[Action, dict | None]:
         return flows.build(s["state"], s, ["welcome_back"]), s
 
     f = await deps.get_farmer(ev.phone)
-    s = new_session(ev.phone, deps.provider, ev.call_id, now)
+    s = new_session(ev.phone, ev.provider or deps.provider, ev.call_id, now)
     if not f:
         s["kind"] = "UNKNOWN_CALLER"
         return await _enter(deps, s, "NOT_REGISTERED"), s

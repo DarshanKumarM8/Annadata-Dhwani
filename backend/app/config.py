@@ -46,6 +46,13 @@ class Settings:
     sim_incoming_ring_s: float = float(os.getenv("SIM_INCOMING_RING_S", "30"))
     job_max_parallel: int = int(os.getenv("JOB_MAX_PARALLEL", "5"))
     job_backoff_s: tuple = (20, 40, 60) if os.getenv("DEMO_MODE", "1") == "1" else (120, 600, 1800)
+    webhook_secret: str = os.getenv("WEBHOOK_SECRET", "")
+    exotel_sid: str = os.getenv("EXOTEL_SID", "")
+    exotel_api_key: str = os.getenv("EXOTEL_API_KEY", "")
+    exotel_api_token: str = os.getenv("EXOTEL_API_TOKEN", "")
+    exophone: str = os.getenv("EXOPHONE", "")
+    exotel_app_id: str = os.getenv("EXOTEL_APP_ID", "")
+    exotel_api_host: str = os.getenv("EXOTEL_API_HOST", "api.exotel.com")
     verify_radius_m: int = int(os.getenv("VERIFY_RADIUS_M", "500"))
 
 

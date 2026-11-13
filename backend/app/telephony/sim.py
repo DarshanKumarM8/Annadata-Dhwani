@@ -95,7 +95,7 @@ async def sim_ws(ws: WebSocket, phone: str = "+919800000001"):
         """Send one event to the engine and relay the resulting Action."""
         nonlocal act, buf, seq
         seq += 1
-        ev.call_id, ev.event_id = call_id or "", event_id or f"{call_id}:{seq}"
+        ev.call_id, ev.event_id, ev.provider = call_id or "", event_id or f"{call_id}:{seq}", "sim"
         action = await process(deps, phone, ev)
         buf = ""
         if action.hangup_now:

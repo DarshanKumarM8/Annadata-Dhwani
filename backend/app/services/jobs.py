@@ -41,6 +41,15 @@ async def enqueue_bid_offers(conn, bid_id, cluster_id) -> int:
     return int(r.split()[-1])
 
 
+async def enqueue_callback(conn, phone: str, farmer_id, call_sid: str) -> bool:
+    """A farmer's missed call: queue the callback (a couple of seconds later, so the missed-call leg has ended)."""
+    r = await conn.execute("""INSERT INTO call_jobs (phone, farmer_id, kind, payload, dedupe_key, run_at)
+                              VALUES ($1, $2::uuid, 'CALLBACK', jsonb_build_object('call_sid', $3::text), $4,
+                                      now() + interval '2 seconds') ON CONFLICT (dedupe_key) DO NOTHING""",
+                           phone, str(farmer_id) if farmer_id else None, call_sid, f"cb:{call_sid}")
+    return r.endswith("1")
+
+
 async def cancel_for_bid(conn, bid_id) -> None:
     """Round settled: stop calling. A call whose lot already answered finishes as DONE, the rest as CANCELLED."""
     await conn.execute("""
@@ -82,10 +91,15 @@ async def mark_in_call(job_id: str) -> None:
 
 async def on_call_end(job_id: str, answered: bool = True) -> str | None:
     """Provider callback when the call is over (or was never answered). Decides DONE / retry / FAILED."""
-    j = await db.pool.fetchrow("SELECT payload, attempts, max_attempts, status FROM call_jobs WHERE id = $1::uuid",
+    j = await db.pool.fetchrow("SELECT kind, payload, attempts, max_attempts, status FROM call_jobs WHERE id = $1::uuid",
                                job_id)
     if not j or j["status"] not in ("DIALING", "IN_CALL"):
         return None
+    if j["kind"] == "CALLBACK":                 # the farmer picked up: the call did its job
+        if answered:
+            await db.pool.execute("UPDATE call_jobs SET status = 'DONE', updated_at = now() WHERE id = $1::uuid", job_id)
+            return "DONE"
+        return await _retry_or_fail(job_id, j["attempts"], j["max_attempts"], "NO_ANSWER")
     if not await _offer_open(_payload(j)):      # answered, or the round was settled meanwhile
         await db.pool.execute("UPDATE call_jobs SET status = 'DONE', updated_at = now() WHERE id = $1::uuid", job_id)
         return "DONE"
@@ -94,7 +108,8 @@ async def on_call_end(job_id: str, answered: bool = True) -> str | None:
 
 async def _dispatch(job: dict) -> None:
     payload, phone = _payload(job), job["phone"]
-    if not await _offer_open(payload):
+    offer = job["kind"] == "BID_OFFER"
+    if offer and not await _offer_open(payload):
         await db.pool.execute("UPDATE call_jobs SET status = 'CANCELLED', updated_at = now() WHERE id = $1::uuid",
                               job["id"])
         return
@@ -103,19 +118,20 @@ async def _dispatch(job: dict) -> None:
                                  run_at = now() + make_interval(secs => $2) WHERE id = $1::uuid""",
                               job["id"], float(LOCK_RETRY_S))
         return
-    budget = f"budget:calls:{time.strftime('%Y%m%d')}"
-    if await cache.redis.incr(budget) > settings.daily_call_budget:
+    budget = f"budget:calls:{time.strftime('%Y%m%d')}"      # callbacks were already counted when the missed call was accepted
+    if offer and await cache.redis.incr(budget) > settings.daily_call_budget:
         await cache.redis.decr(budget)
         await db.pool.execute("UPDATE call_jobs SET status = 'FAILED', last_error = 'BUDGET', updated_at = now() "
                               "WHERE id = $1::uuid", job["id"])
         return
     try:
-        placed = await base.get_provider().place_call(phone, {"id": job["id"], "kind": job["kind"], "payload": payload})
+        placed = await base.get_provider(phone).place_call(phone, {"id": job["id"], "kind": job["kind"], "payload": payload})
     except Exception:
         log.exception("place_call failed")
         placed = False
     if not placed:
-        await cache.redis.decr(budget)
+        if offer:
+            await cache.redis.decr(budget)
         await _retry_or_fail(job["id"], job["attempts"], job["max_attempts"], "NO_LINE")
 
 

@@ -13,7 +13,7 @@ from .config import ROOT, settings
 from .engine.deps import PgDeps
 from .api import agent, auth, buyer, clusters, ops, ws
 from .services import bidding, jobs, sweeper
-from .telephony import sim
+from .telephony import exotel, sim
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Annadata Dhwani", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(sim.router)
+app.include_router(exotel.router)
 app.include_router(ops.router)
 app.include_router(auth.router)
 app.include_router(clusters.router)

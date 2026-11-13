@@ -8,7 +8,8 @@ digits) live in their own modules; this is only the outbound side used by servic
         jobs.mark_in_call(job_id) when answered and jobs.on_call_end(job_id, answered) when the call is over.
         Return False if the call cannot be placed right now (the job is retried with backoff).
 
-Selected by TELEPHONY_PROVIDER: "sim" (browser simulator) or "exotel" (D7).
+Selected per phone by provider_for(): a farmer whose browser simulator phone is connected is rung there; every other
+number goes to the provider named by TELEPHONY_PROVIDER ("sim" = nobody else can be rung, "exotel" = the real network).
 """
 import importlib
 
@@ -23,7 +24,10 @@ def set_provider(p) -> None:
     _override = p
 
 
-def get_provider():
+def get_provider(phone: str | None = None):
     if _override is not None:
         return _override
+    sim = importlib.import_module(f"{__package__}.sim")
+    if settings.provider == "sim" or (phone is not None and phone in sim.LINES):
+        return sim
     return importlib.import_module(f"{__package__}.{settings.provider}")

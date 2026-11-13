@@ -10,6 +10,7 @@ class Event:
     phone: str = ""                # needed on "start"
     event_id: str = ""             # unique per provider event (idempotency, D3)
     ts_ms: int = 0
+    provider: str = ""             # "sim" | "exotel": which adapter this call arrived on
     job: dict | None = None        # outbound-call job on "start" (BID_OFFER): {id, kind, payload}
     job: dict | None = None        # outbound-call job on "start" (BID_OFFER): {"id","kind","payload"}
 

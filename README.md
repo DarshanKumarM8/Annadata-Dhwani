@@ -118,6 +118,14 @@ cd backend && DATABASE_URL=postgresql://postgres:postgres@localhost:5433/annadat
 ```
 (use your own port/credentials from `.env`; the tests create the reference rows they need).
 
+D7 (real phones through Exotel): `backend/app/telephony/exotel.py` serves `/tel/exotel/{WEBHOOK_SECRET}/missed|gather|digits|status`
+and places calls with the Exotel connect API. A missed call queues a `CALLBACK` job in the same queue as the offer calls; the
+worker rings the farmer, Exotel runs the `annadata-ivr` flow, and every Gather/Passthru pair is one engine event. Real numbers go
+through Exotel and `/sim` farmers still ring in the browser at the same time. Events are accepted only for call ids we started.
+`python backend/scripts/exotel_check.py --ping` lists missing settings and the exact URLs to paste into the Exotel flow. To go live:
+(1) Nahyan builds the flow and sends the App ID -> `EXOTEL_APP_ID`, (2) set `TELEPHONY_PROVIDER=exotel`, restart,
+(3) missed-call a whitelisted phone. The applet behaviour (quoted digits, Passthru 404 = hang up) is unverified until that spike.
+
 Live board for demos: open `http://localhost:8000/demo`, enter `SEED_PASSWORD`, and watch clusters, bids and deals update live.
 The buttons stand in for the agent PWA, buyer screens and farmers' accept calls (a stopgap until those UIs merge).
 Serve the backend to other laptops on the same Wi-Fi with `--host 0.0.0.0` and point their `VITE_API_BASE` / `VITE_WS_BASE` at your IP.

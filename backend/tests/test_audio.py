@@ -78,8 +78,22 @@ def _wav_duration_ms(path: Path) -> float:
 
 
 def _patch_audio_root(tmp_path: Path, monkeypatch) -> Path:
-    """Override AUDIO_ROOT and MIX_DIR in audio.py to point at tmp_path."""
-    import app.services.audio as _audio  # type: ignore[import]
+    """Override AUDIO_ROOT and MIX_DIR in the audio module.
+
+    Uses sys.modules to find the exact module object the top-level
+    imports resolved to, regardless of import path variant.
+    """
+    import sys as _sys
+    _audio = (
+        _sys.modules.get("backend.app.services.audio")
+        or _sys.modules.get("app.services.audio")
+    )
+    if _audio is None:
+        try:
+            import app.services.audio as _audio  # type: ignore[import]
+        except ModuleNotFoundError:
+            import importlib
+            _audio = importlib.import_module("app.services.audio")
     monkeypatch.setattr(_audio, "AUDIO_ROOT", tmp_path)
     monkeypatch.setattr(_audio, "MIX_DIR", tmp_path / "mix")
     return tmp_path

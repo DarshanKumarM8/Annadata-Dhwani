@@ -17,6 +17,7 @@ from .flows import GUARD_FACTOR, RESUMABLE, TERMINAL
 
 log = logging.getLogger("engine")
 MAX_RETRIES = 2
+FAIL_TICKET_THRESHOLD = 3
 
 
 class ListingExists(Exception):
@@ -40,7 +41,7 @@ async def _enter(deps, s: dict, state: str, prefix: list[str] | None = None) -> 
     elif state == "PRICE":
         d["floor"] = await deps.get_floor(s["district_code"], d["crop"])
     elif state in ("HELP", "NOT_REGISTERED"):
-        reason = "UNKNOWN_CALLER" if state == "NOT_REGISTERED" else "HELP_KEY"
+        reason = "UNKNOWN_CALLER" if state == "NOT_REGISTERED" else d.get("help_reason", "HELP_KEY")
         d["verbal_code"] = await deps.open_ticket(s["phone"], s["farmer_id"], reason)
     return flows.build(state, s, prefix)
 
@@ -77,7 +78,10 @@ async def _start(deps, s: dict | None, ev: Event) -> tuple[Action, dict]:
 async def _retry(deps, s: dict, invalid: bool) -> Action:
     s["retries"] += 1
     if s["retries"] > MAX_RETRIES:
-        await deps.record_failure(s["phone"])
+        s["data"]["failed_input"] = True
+        if await deps.record_failure(s["phone"]) >= FAIL_TICKET_THRESHOLD:   # 3 failed calls in 24 h: get a human
+            s["data"]["help_reason"] = "IVR_FAIL_3"
+            return await _enter(deps, s, "HELP")
         return await _enter(deps, s, "BYE")
     return flows.build(s["state"], s, ["bad_input"] if invalid else None)
 

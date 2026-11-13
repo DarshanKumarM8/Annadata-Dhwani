@@ -30,7 +30,9 @@ class FakeDeps:
     async def has_any_live_listing(self, fid): return bool(self.live)
     async def get_floor(self, district, crop): return self.floor
     async def open_ticket(self, phone, fid, reason): return "07"
-    async def record_failure(self, phone): self.failures += 1
+    async def record_failure(self, phone):
+        self.failures += 1
+        return self.failures
 
     async def commit_listing(self, s):
         if s["data"]["crop"] in self.live:
@@ -157,6 +159,14 @@ async def test_three_failures_end_with_bye_and_count():
     acts, _ = await walk(d, ["x", "x", "x"])                  # CROP: 3 invalid keys
     assert [a.state for a in acts[1:]] == ["CROP", "CROP", "BYE"] and acts[-1].hangup
     assert acts[1].clips[0] == "bad_input" and d.failures == 1
+
+
+async def test_third_failed_call_opens_helper_ticket():
+    d = FakeDeps()
+    d.failures = 2                                            # two earlier failed calls today
+    acts, s = await walk(d, ["x", "x", "x"])
+    assert acts[-1].state == "HELP" and acts[-1].hangup and acts[-1].clips[-2:] == ["d_0", "d_7"]
+    assert s["data"]["help_reason"] == "IVR_FAIL_3"
 
 
 async def test_timeout_replays_without_bad_input_clip():

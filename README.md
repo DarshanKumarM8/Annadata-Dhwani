@@ -75,7 +75,12 @@ In a second terminal, walk a full listing as the simulated phone (`--help` lists
 python backend/scripts/sim_client.py --price 3000 --bounce
 ```
 
-Unit tests (no database needed): `cd backend && python -m pytest`. Set `SIM_RING_MIN=0.2 SIM_RING_MAX=0.3 SIM_HANGUP_DELAY=0.3` for quicker test calls.
+Reliability (D3): every transition is checkpointed to Postgres `call_sessions`, so after `POST /api/ops/chaos/flush-redis`
+(DEMO_MODE only) a live call carries on from where it was. Missed calls are deduplicated (20 s) and limited to 3 per
+10 minutes and 6 per day per number; for rehearsals raise them with `RL_CB_10M` / `RL_CB_DAY` in `.env`.
+
+Tests: `cd backend && python -m pytest`. The engine tests need nothing; `test_reliability.py` uses the compose stack
+(Postgres + Valkey) and skips itself when it is not running. Set `SIM_RING_MIN=0.2 SIM_RING_MAX=0.3 SIM_HANGUP_DELAY=0.3` for quicker test calls.
 
 ## Folder ownership (only the owner edits a folder)
 

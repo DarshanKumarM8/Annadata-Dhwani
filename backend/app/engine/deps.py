@@ -91,7 +91,10 @@ class PgDeps:
         return await self.pool.fetchval("""SELECT verbal_code FROM triage_tickets
                        WHERE phone = $1 AND status IN ('OPEN','ASSIGNED')""", phone)
 
-    async def record_failure(self, phone: str) -> None:
+    async def record_failure(self, phone: str) -> int:
+        """Count a failed call (24 h window) and return the running total."""
         k = f"fail:{phone}"
-        await cache.redis.incr(k)
-        await cache.redis.expire(k, 86400)
+        n = await cache.redis.incr(k)
+        if n == 1:
+            await cache.redis.expire(k, 86400)
+        return int(n)

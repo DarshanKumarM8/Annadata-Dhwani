@@ -1,4 +1,5 @@
 """FastAPI entry point. Run from backend/:  uvicorn app.main:app --port 8000. Owner: Darshan."""
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -9,6 +10,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from . import cache, db
 from .config import ROOT, settings
 from .engine.deps import PgDeps
+from .api import ops
+from .services import sweeper
 from .telephony import sim
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -21,7 +24,9 @@ async def lifespan(app: FastAPI):
     pool = await db.connect()
     await cache.connect()
     app.state.deps = PgDeps(pool)
+    sweep = asyncio.create_task(sweeper.run())
     yield
+    sweep.cancel()
     await cache.close()
     await db.close()
 
@@ -29,6 +34,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Annadata Dhwani", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(sim.router)
+app.include_router(ops.router)
 
 
 @app.get("/audio/mix/{name}")

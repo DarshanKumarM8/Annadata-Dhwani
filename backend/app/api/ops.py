@@ -22,7 +22,7 @@ async def flush_redis(_: dict = admin):
     """Demo failure injection: wipe Valkey. Live calls must carry on from the Postgres checkpoint."""
     if not settings.demo_mode:
         raise ApiError(403, "DEMO_MODE_ONLY")
-    await cache.redis.flushall()
+    await cache.redis.flushdb()
     cache.load_scripts()
     return {"ok": True}
 

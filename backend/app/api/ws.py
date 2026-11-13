@@ -59,7 +59,9 @@ class Hub:
                 if pubsub is None:
                     pubsub = cache.redis.pubsub()
                     await pubsub.subscribe(CHANNEL)
-                await pubsub.get_message(ignore_subscribe_messages=True, timeout=POLL_S)
+                msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=POLL_S)
+                if msg and msg.get("data") in ("resync", b"resync"):
+                    self.broadcast_resync()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -71,6 +73,15 @@ class Hub:
                 raise
             except Exception:
                 log.exception("hub poll failed")
+
+    def broadcast_resync(self) -> None:
+        """After a demo reset: tell every dashboard to refetch (it removes clusters that no longer exist)."""
+        self.last = 0
+        for q in list(self.conns):
+            try:
+                q.put_nowait({"type": "resync"})
+            except asyncio.QueueFull:
+                q.put_nowait(None)
 
     async def drain(self) -> None:
         while True:
@@ -119,6 +130,10 @@ async def ws(websocket: WebSocket, token: str | None = None, since: int = 0):
             m = await q.get()
             if m is None:
                 break
+            if m.get("type") == "resync":
+                sent = await db.pool.fetchval("SELECT COALESCE(MAX(seq), 0) FROM events")
+                await websocket.send_json({"type": "resync"})
+                continue
             if m["seq"] > sent:
                 sent = m["seq"]
                 out = render(m, role, sub)

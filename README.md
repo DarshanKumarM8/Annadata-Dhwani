@@ -126,6 +126,13 @@ through Exotel and `/sim` farmers still ring in the browser at the same time. Ev
 (1) Nahyan builds the flow and sends the App ID -> `EXOTEL_APP_ID`, (2) set `TELEPHONY_PROVIDER=exotel`, restart,
 (3) missed-call a whitelisted phone. The applet behaviour (quoted digits, Passthru 404 = hang up) is unverified until that spike.
 
+Demo reset and acceptance (D9): `python backend/scripts/demo_reset.py --yes` wipes the trade data and rebuilds the three demo
+clusters in a few seconds (`--empty` for none, `--keep-farmers` to keep language/consent) and tells open dashboards to refetch.
+`python backend/scripts/acceptance.py --reset` walks the acceptance checklist (items 1-11) through the real API and the phone simulator
+and prints PASS/FAIL per item (items 12 and 13 are manual, item 14 is running it twice). Run both only on a throw-away setup, never while someone
+rehearses: use the test database, Redis db 1, `TELEPHONY_PROVIDER=sim` (no real calls) and fast simulator timing; the exact environment is in the
+header of `acceptance.py`. Tests also use Redis db 1: `REDIS_URL=redis://localhost:6379/1` next to the test `DATABASE_URL`.
+
 Live board for demos: open `http://localhost:8000/demo`, enter `SEED_PASSWORD`, and watch clusters, bids and deals update live.
 The buttons stand in for the agent PWA, buyer screens and farmers' accept calls (a stopgap until those UIs merge).
 Serve the backend to other laptops on the same Wi-Fi with `--host 0.0.0.0` and point their `VITE_API_BASE` / `VITE_WS_BASE` at your IP.

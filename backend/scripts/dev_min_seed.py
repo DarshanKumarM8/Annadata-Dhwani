@@ -89,6 +89,12 @@ async def main(floor: int | None, reset: bool) -> None:
                        ON CONFLICT (phone) DO UPDATE SET pin_hash = EXCLUDED.pin_hash""", FPO_ID, pin)
     if floor:
         afpp = int((floor * 0.98 - 60) // 10 * 10)
+        # the database is the source of truth (a Redis flush must not lose the floor); Redis is just the cache
+        await c.execute("""INSERT INTO price_floors (district_code, crop_code, as_of, price_date, modal_price, afpp, basis)
+            VALUES ('KA-MANDYA', 'ragi', current_date, current_date, $1, $2, 'DISTRICT_FRESH')
+            ON CONFLICT (district_code, crop_code, as_of)
+            DO UPDATE SET modal_price = EXCLUDED.modal_price, afpp = EXCLUDED.afpp, price_date = EXCLUDED.price_date""",
+                        float(floor), float(afpp))
         await r.set("floor:KA-MANDYA:ragi", json.dumps({"modal_price": float(floor), "afpp": afpp,
                     "basis": "DISTRICT_FRESH", "price_date": "dev"}), ex=93600)
         print(f"cached ragi floor: modal {floor}, afpp {afpp}")

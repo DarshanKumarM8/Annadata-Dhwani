@@ -101,7 +101,7 @@ async def test_flushall_mid_call_continues_from_checkpoint(stack):
     row = (await fetch("SELECT state, version FROM call_sessions WHERE phone=$1", phone))[0]
     assert row["state"] == "QTY_CONFIRM"
 
-    await cache.redis.flushall()                       # Valkey loses everything mid-call
+    await cache.redis.flushdb()                       # Valkey loses everything mid-call
     cache.load_scripts()
     assert await cache.redis.get(f"sess:{phone}") is None
 
@@ -122,7 +122,7 @@ async def test_stale_checkpoint_is_not_rehydrated(stack):
     c = await asyncpg.connect(settings.database_url)
     await c.execute("UPDATE call_sessions SET updated_at = now() - interval '31 minutes' WHERE phone=$1", phone)
     await c.close()
-    await cache.redis.flushall()
+    await cache.redis.flushdb()
     assert await store.load(phone) is None             # older than 30 minutes: the draft is gone
     assert await store.expire_stale() >= 1
     assert (await fetch("SELECT outcome FROM call_sessions WHERE phone=$1", phone))[0]["outcome"] == "EXPIRED"

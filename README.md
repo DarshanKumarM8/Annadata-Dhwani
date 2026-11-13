@@ -100,6 +100,10 @@ The farmers' accept/reject round is not wired to phone calls yet: in the demo us
 settles at the deadline (90 s in demo mode). Deal created when accepted quantity reaches the bid's minimum; otherwise the bid fails,
 the cluster returns to BIDDING once, then NO_BID.
 
+Live board for demos: open `http://localhost:8000/demo`, enter `SEED_PASSWORD`, and watch clusters, bids and deals update live.
+The buttons stand in for the agent PWA, buyer screens and farmers' accept calls (a stopgap until those UIs merge).
+Serve the backend to other laptops on the same Wi-Fi with `--host 0.0.0.0` and point their `VITE_API_BASE` / `VITE_WS_BASE` at your IP.
+
 ## Folder ownership (only the owner edits a folder)
 
 | Path | Owner |

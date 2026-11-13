@@ -74,10 +74,11 @@ async def main(floor: int | None, reset: bool) -> None:
     for email, org in (("buyer1@demo.test", "Mysuru Grain Traders"), ("buyer2@demo.test", "Bengaluru Agro Foods"),
                        ("admin@demo.test", "Platform Admin")):
         await c.execute("""INSERT INTO buyers (org_name,email,password_hash,phone,status)
-                           VALUES ($1,$2,$3,'+910000000000','APPROVED') ON CONFLICT DO NOTHING""", org, email, pw)
+                           VALUES ($1,$2,$3,'+910000000000','APPROVED')
+                           ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash""", org, email, pw)
     pin = bcrypt.hashpw(os.getenv("AGENT_PIN", "1234").encode(), bcrypt.gensalt(rounds=10)).decode()
     await c.execute("""INSERT INTO agents (fpo_id,name,phone,pin_hash) VALUES ($1::uuid,'Kavya','+919800000099',$2)
-                       ON CONFLICT DO NOTHING""", FPO_ID, pin)
+                       ON CONFLICT (phone) DO UPDATE SET pin_hash = EXCLUDED.pin_hash""", FPO_ID, pin)
     if floor:
         afpp = int((floor * 0.98 - 60) // 10 * 10)
         await r.set("floor:KA-MANDYA:ragi", json.dumps({"modal_price": float(floor), "afpp": afpp,

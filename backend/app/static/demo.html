@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annadata Dhwani Live Board</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d2320;--mute:#66706a;--line:#dedbd2;--g:#2f7a46;--a:#b8741a;--b:#2a5fa8;--r:#b3402f}
+@media (prefers-color-scheme:dark){:root{--bg:#161a18;--card:#1f2523;--ink:#ecefed;--mute:#9aa49e;--line:#333c38;--g:#5cbf7a;--a:#e0a24d;--b:#6aa0ea;--r:#e57d6c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif}
+header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+h1{font-size:18px;margin:0}h2{font-size:14px;margin:0 0 8px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.pill{padding:2px 10px;border-radius:99px;font-size:12px;border:1px solid var(--line);color:var(--mute)}
+.pill.on{color:var(--g);border-color:var(--g)}
+#login{padding:14px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input,button{font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+button{cursor:pointer}button.p{background:var(--g);border-color:var(--g);color:#fff}button:disabled{opacity:.5}
+main{display:grid;grid-template-columns:1fr 340px;gap:16px;padding:16px}
+@media (max-width:860px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.st{font-weight:600;font-size:12px;padding:2px 9px;border-radius:99px;color:#fff}
+.OPEN{background:var(--mute)}.READY{background:var(--a)}.BIDDING{background:var(--b)}.CONFIRMING{background:var(--a)}.DEAL{background:var(--g)}.NO_BID,.FAILED{background:var(--r)}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;background:var(--g)}
+.kv{display:flex;gap:18px;flex-wrap:wrap;color:var(--mute);font-size:13px}.kv b{color:var(--ink)}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center}.acts input{width:90px}
+ol{list-style:none;margin:0;padding:0;max-height:70vh;overflow:auto}
+li{padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}li small{color:var(--mute)}
+.empty{color:var(--mute);padding:30px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Annadata Dhwani · live board</h1>
+  <span><span class="pill" id="conn">offline</span> <span class="pill">demo build</span></span>
+</header>
+<div id="login">
+  <label>Password <input id="pw" type="password" placeholder="SEED_PASSWORD"></label>
+  <label>Agent PIN <input id="pin" value="1234" size="5"></label>
+  <button class="p" id="go">Connect</button><span id="err" style="color:var(--r)"></span>
+</div>
+<main>
+  <section><h2>Clusters (pooled harvests)</h2><div id="clusters"><div class="empty">Connect, then list a crop from the phone simulator.</div></div></section>
+  <aside><h2>Live events</h2><ol id="log"></ol></aside>
+</main>
+<script>
+const B = location.origin;
+const T = {};           // tokens: b1, b2 (buyers), ad (admin), ag (agent)
+const clusters = {};
+const deals = {};       // cluster_id -> {deal, owner}
+let ws;
+
+async function api(path, tok, opt = {}) {
+  const headers = { ...(tok ? { Authorization: "Bearer " + tok } : {}), ...(opt.headers || {}) };
+  let body = opt.body;
+  if (body && !(body instanceof FormData)) { headers["Content-Type"] = "application/json"; body = JSON.stringify(body); }
+  const r = await fetch(B + path, { method: opt.method || (body ? "POST" : "GET"), headers, body });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || r.status), { body: j });
+  return j;
+}
+const login = (email, pw) => api("/api/auth/buyer/login", null, { body: { email, password: pw } }).then(j => j.token);
+const money = n => n == null ? "–" : "₹" + Number(n).toLocaleString("en-IN");
+const say = (t, m) => {
+  const li = document.createElement("li");
+  li.innerHTML = `<b>${t}</b> <small>${m || ""}</small>`;
+  const log = document.getElementById("log"); log.prepend(li); while (log.children.length > 60) log.lastChild.remove();
+};
+const note = e => say("error", (e.message || e) + (e.body && e.body.min_next ? " (min " + e.body.min_next + ")" : ""));
+
+function render() {
+  const el = document.getElementById("clusters");
+  const list = Object.values(clusters).sort((a, b) => b.code - a.code);
+  if (!list.length) { el.innerHTML = '<div class="empty">No clusters yet. List a crop from the phone simulator.</div>'; return; }
+  el.innerHTML = list.map(c => {
+    const pct = Math.min(100, c.total_qtl / 20 * 100);
+    const best = c.best_bid ? money(c.best_bid.price_per_qtl) : "no bids";
+    const d = deals[c.id];
+    let acts = "";
+    if (c.status === "READY") acts = `<button data-a="verify" data-id="${c.id}">Agent verifies sample</button>`;
+    if (c.status === "BIDDING") acts = `<input id="p${c.id}" type="number" placeholder="₹ / qtl" value="${(c.best_bid ? c.best_bid.price_per_qtl + 10 : c.min_ask) || ""}">
+      <input id="q${c.id}" type="number" placeholder="min qtl" value="${Math.min(15, c.total_qtl)}">
+      <button data-a="bid1" data-id="${c.id}">Bid as Buyer 1</button><button data-a="bid2" data-id="${c.id}">Bid as Buyer 2</button>
+      <button data-a="close" data-id="${c.id}">Close auction</button>`;
+    if (c.status === "CONFIRMING") acts = `<button class="p" data-a="accept" data-id="${c.id}">Farmers accept</button><button data-a="reject" data-id="${c.id}">Farmers reject</button>`;
+    if (c.status === "DEAL" && d) {
+      acts = d.deal.status === "CONFIRMED" ? `<button data-a="pay" data-id="${c.id}">Buyer reports payment</button>`
+        : d.deal.status === "PAYMENT_REPORTED" ? `<button class="p" data-a="confirm" data-id="${c.id}">Agent confirms payment</button>` : `<b style="color:var(--g)">Paid ✔</b>`;
+    }
+    const dealLine = d ? `<div class="kv"><span>Deal <b>${d.deal.qty_qtl} q × ${money(d.deal.price_per_qtl)}</b></span><span>Gross <b>${money(d.deal.gross_value)}</b></span><span>Platform fee <b>${money(d.deal.platform_fee)}</b></span><span>Status <b>${d.deal.status}</b></span><span>Pay to <b>${d.deal.fpo.name}</b></span></div>` : "";
+    return `<div class="card"><div class="row"><b>Cluster #${c.code} · ${c.crop_name}</b><span class="st ${c.status}">${c.status}</span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="kv"><span>Total <b>${c.total_qtl} q</b> of 20 to unlock</span><span>Farmers <b>${c.listing_count}</b></span><span>Lowest ask <b>${money(c.min_ask)}</b></span><span>Avg ask <b>${money(c.wavg_ask)}</b></span><span>Best bid <b>${best}</b></span>${c.grade ? `<span>Grade <b>${c.grade}</b></span>` : ""}<span>Pickup <b>${c.collection_point.name}</b></span>${c.bidding_ends_at && c.status === "BIDDING" ? `<span>Closes in <b class="cd" data-end="${c.bidding_ends_at}"></b></span>` : ""}</div>
+      ${dealLine}<div class="acts">${acts}</div></div>`;
+  }).join("");
+}
+setInterval(() => document.querySelectorAll(".cd").forEach(e => {
+  const s = Math.max(0, Math.round((new Date(e.dataset.end) - Date.now()) / 1000));
+  e.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}), 500);
+
+async function loadDeal(c) {
+  if (c.status !== "DEAL") return;
+  for (const [who, tok] of [["b1", T.b1], ["b2", T.b2]]) {
+    const m = (await api("/api/deals/mine", tok)).deals.find(x => x.cluster_id === c.id);
+    if (m) { deals[c.id] = { deal: m, owner: who }; return; }
+  }
+}
+async function upsert(c) { clusters[c.id] = c; await loadDeal(c); render(); }
+async function reload() {
+  const j = await api("/api/clusters", T.b1);
+  for (const c of j.clusters) { clusters[c.id] = c; await loadDeal(c); }
+  render();
+}
+const LINE = {
+  "listing.created": p => `farmer lists ${p.qty_qtl} q @ ${money(p.ask_price)} (${p.crop_code})`,
+  "cluster.updated": p => `cluster #${p.code} → ${p.status}, ${p.total_qtl} q`,
+  "task.created": p => `agent task: verify sample`,
+  "bid.placed": p => `bid ${money(p.price_per_qtl)}`,
+  "bid.confirming": p => `farmers asked: ${p.accepted_qtl} accepted, ${p.pending_qtl} pending`,
+  "bid.failed": () => "bid failed, back to bidding",
+  "deal.created": p => `deal: ${p.qty_qtl} q at ${money(p.price_per_qtl)} = ${money(p.gross_value)}`,
+  "deal.updated": p => `deal ${p.status}`,
+};
+function connectWs() {
+  ws = new WebSocket(B.replace("http", "ws") + "/ws?token=" + T.ad + "&since=0");
+  ws.onopen = () => { const c = document.getElementById("conn"); c.textContent = "live"; c.className = "pill on"; };
+  ws.onclose = () => { const c = document.getElementById("conn"); c.textContent = "reconnecting…"; c.className = "pill"; setTimeout(connectWs, 1500); };
+  ws.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.type === "resync") { reload(); return; }
+    say(m.type, (LINE[m.type] || (() => ""))(m.payload));
+    if (m.type === "cluster.updated") upsert(m.payload);
+    if (m.type.startsWith("deal.")) reload();
+  };
+}
+
+document.getElementById("clusters").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-a]"); if (!b) return;
+  const id = b.dataset.id, c = clusters[id]; b.disabled = true;
+  try {
+    const a = b.dataset.a;
+    if (a === "verify") {
+      const fd = new FormData();
+      fd.append("photo", new Blob([new Uint8Array([255, 216, 255, 0])], { type: "image/jpeg" }), "sample.jpg");
+      fd.append("grade", "A"); fd.append("moisture_pct", "11.5"); fd.append("accuracy_m", "10");
+      fd.append("lat", c.collection_point.lat); fd.append("lon", c.collection_point.lon); fd.append("captured_at", new Date().toISOString());
+      await api(`/api/agent/clusters/${id}/verification`, T.ag, { body: fd });
+    }
+    if (a === "bid1" || a === "bid2") {
+      await api(`/api/clusters/${id}/bids`, a === "bid1" ? T.b1 : T.b2, {
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: { price_per_qtl: +document.getElementById("p" + id).value, min_qty_qtl: +document.getElementById("q" + id).value } });
+      if (a === "bid2") say("Buyer 2 bid", "accepted");
+    }
+    if (a === "close") await api(`/api/admin/clusters/${id}/close-auction`, T.ad, { method: "POST" });
+    if (a === "accept") await api(`/api/admin/clusters/${id}/simulate-farmers`, T.ad, { body: { accept: true } });
+    if (a === "reject") await api(`/api/admin/clusters/${id}/simulate-farmers`, T.ad, { body: { accept: false } });
+    if (a === "pay") await api(`/api/deals/${deals[id].deal.id}/payment-reported`, T[deals[id].owner], { body: { payment_ref: "UTR" + Date.now() } });
+    if (a === "confirm") await api(`/api/agent/deals/${deals[id].deal.id}/payment-confirmed`, T.ag, { method: "POST" });
+  } catch (x) { note(x); }
+  b.disabled = false;
+});
+
+document.getElementById("go").onclick = async () => {
+  const pw = document.getElementById("pw").value, err = document.getElementById("err");
+  err.textContent = "";
+  try {
+    [T.b1, T.b2, T.ad] = await Promise.all([login("buyer1@demo.test", pw), login("buyer2@demo.test", pw), login("admin@demo.test", pw)]);
+    T.ag = (await api("/api/auth/agent/login", null, { body: { phone: "+919800000099", pin: document.getElementById("pin").value } })).token;
+    document.getElementById("login").style.display = "none";
+    await reload(); connectWs();
+  } catch (x) { err.textContent = "Login failed: " + x.message; }
+};
+document.getElementById("pw").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("go").click(); });
+</script>
+</body>
+</html>

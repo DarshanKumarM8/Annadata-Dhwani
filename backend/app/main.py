@@ -1,6 +1,7 @@
 """FastAPI entry point. Run from backend/:  uvicorn app.main:app --port 8000. Owner: Darshan."""
 import asyncio
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -65,6 +66,12 @@ async def audio_mix(name: str):
     if f.is_file() and f.resolve().parent == (settings.audio_dir / "mix").resolve():
         return FileResponse(f, media_type="audio/wav")
     return FileResponse(SAMPLE, media_type="audio/wav")
+
+
+@app.get("/demo", include_in_schema=False)
+async def demo_board():
+    """One-page live board for judges: clusters, bids, deals and the event feed. Stopgap until the real UIs merge."""
+    return FileResponse(Path(__file__).parent / "static" / "demo.html", media_type="text/html")
 
 
 @app.get("/media/v/{name}")

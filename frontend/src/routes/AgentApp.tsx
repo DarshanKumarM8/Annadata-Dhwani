@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../lib/api";
+import LiveCamera, { type CaptureMeta } from "../components/agent/LiveCamera";
 
 // ---------------------------------------------------------------------------
 // Type Definitions
@@ -69,6 +70,8 @@ export interface OfflineVerification {
   queued_at: string;
   lat?: string;
   lon?: string;
+  accuracy_m?: string;
+  captured_at?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +127,7 @@ export default function AgentApp(): React.ReactElement {
   const [notesInput, setNotesInput] = useState<string>("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [captureMeta, setCaptureMeta] = useState<CaptureMeta | null>(null);
   const [submittingVerification, setSubmittingVerification] = useState<boolean>(false);
   const [verificationFeedback, setVerificationFeedback] = useState<{
     type: "success" | "error";
@@ -144,7 +148,6 @@ export default function AgentApp(): React.ReactElement {
     }
   });
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // ---------------------------------------------------------------------------
   // Connectivity & PWA Listeners
@@ -296,32 +299,17 @@ export default function AgentApp(): React.ReactElement {
   // Photo Capture & Preview
   // ---------------------------------------------------------------------------
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setVerificationFeedback({
-        type: "error",
-        message: "Photo size exceeds 10MB. Please take another photo.",
-      });
-      return;
-    }
-
+  const handleCapture = (file: File, dataUrl: string, meta: CaptureMeta) => {
     setPhotoFile(file);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setPhotoPreview(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    setPhotoPreview(dataUrl);
+    setCaptureMeta(meta);
     setVerificationFeedback(null);
   };
 
   const handleClearPhoto = () => {
     setPhotoFile(null);
     setPhotoPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setCaptureMeta(null);
   };
 
   // ---------------------------------------------------------------------------
@@ -354,6 +342,10 @@ export default function AgentApp(): React.ReactElement {
         photo_name: photoFile?.name || "produce.jpg",
         photo_type: photoFile?.type || "image/jpeg",
         queued_at: new Date().toISOString(),
+        lat: captureMeta?.lat !== undefined ? String(captureMeta.lat) : undefined,
+        lon: captureMeta?.lon !== undefined ? String(captureMeta.lon) : undefined,
+        accuracy_m: captureMeta?.accuracy !== undefined ? String(captureMeta.accuracy) : undefined,
+        captured_at: captureMeta?.capturedAt,
       };
       const newQueue = [...offlineQueue, offlineItem];
       setOfflineQueue(newQueue);
@@ -372,9 +364,9 @@ export default function AgentApp(): React.ReactElement {
     // Online submission
     try {
       // Capture live GPS location if available
-      let lat: number | null = null;
-      let lon: number | null = null;
-      if (navigator.geolocation) {
+      let lat: number | null = captureMeta?.lat ?? null;
+      let lon: number | null = captureMeta?.lon ?? null;
+      if (lat === null && navigator.geolocation) {
         try {
           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -400,6 +392,10 @@ export default function AgentApp(): React.ReactElement {
       if (lat !== null && lon !== null) {
         formData.append("lat", lat.toFixed(6));
         formData.append("lon", lon.toFixed(6));
+      }
+      if (captureMeta) {
+        formData.append("captured_at", captureMeta.capturedAt);
+        if (captureMeta.accuracy !== undefined) formData.append("accuracy_m", String(captureMeta.accuracy));
       }
       if (photoFile) {
         formData.append("photo", photoFile, photoFile.name);
@@ -461,10 +457,14 @@ export default function AgentApp(): React.ReactElement {
               formData.append("lat", item.lat);
               formData.append("lon", item.lon);
             }
+            if (item.captured_at) formData.append("captured_at", item.captured_at);
+            if (item.accuracy_m) formData.append("accuracy_m", item.accuracy_m);
             formData.append("photo", blob, item.photo_name);
 
             await api.postForm(`/api/agent/clusters/${item.cluster_id}/verify`, formData);
-          } catch {
+          } catch (err: any) {
+            const code = err?.body?.error;
+            if (code === "ALREADY_VERIFIED" || code === "STALE_CAPTURE") continue; // can never succeed: drop it
             remaining.push(item);
           }
         }
@@ -875,44 +875,7 @@ export default function AgentApp(): React.ReactElement {
                     Produce Photograph (Live Camera) *
                   </label>
 
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoSelect}
-                    className="hidden"
-                    id="camera-input"
-                  />
-
-                  {photoPreview ? (
-                    <div className="relative rounded-xl overflow-hidden border border-slate-700 aspect-video bg-black flex items-center justify-center">
-                      <img src={photoPreview} alt="Captured Produce" className="max-h-full object-contain" />
-                      <button
-                        type="button"
-                        onClick={handleClearPhoto}
-                        className="absolute top-2 right-2 bg-rose-600/80 hover:bg-rose-600 text-white p-1.5 rounded-full shadow"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ) : (
-                    <label
-                      htmlFor="camera-input"
-                      className="border-2 border-dashed border-slate-700 hover:border-emerald-500/60 rounded-xl p-6 flex flex-col items-center justify-center space-y-2 cursor-pointer bg-slate-950/40 active:bg-slate-800"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </div>
-                      <span className="text-sm font-semibold text-slate-200">Tap to Capture Produce Photo</span>
-                      <span className="text-[11px] text-slate-500">Take clear shot of grain color and cleanliness</span>
-                    </label>
-                  )}
+                  <LiveCamera preview={photoPreview} onCapture={handleCapture} onClear={handleClearPhoto} />
                 </div>
 
                 {/* Quality Grade Selection */}

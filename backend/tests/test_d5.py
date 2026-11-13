@@ -102,7 +102,8 @@ def test_full_trade_flow(clean5):
                            ).json() == {"error": "BID_TOO_LOW", "min_next": 3110.0}
         second = client.post(url, headers=hdr(t2, "k3"), json={"price_per_qtl": 3110, "min_qty_qtl": 20})
         assert second.status_code == 201
-        assert [b["status"] for b in client.get("/api/bids/mine", headers=hdr(t1)).json()["bids"]] == ["OUTBID"]
+        assert [b["status"] for b in client.get("/api/bids/mine", headers=hdr(t1)).json()["bids"]
+                if b["cluster_id"] == cid] == ["OUTBID"]
         mine1 = client.get(f"/api/clusters/{cid}", headers=hdr(t1)).json()["best_bid"]
         mine2 = client.get(f"/api/clusters/{cid}", headers=hdr(t2)).json()["best_bid"]
         assert mine1 == {"price_per_qtl": 3110.0, "mine": False} and mine2["mine"] is True
@@ -110,14 +111,15 @@ def test_full_trade_flow(clean5):
         # --- round 1: nobody answers, deadline passes -> bid FAILED, cluster back to BIDDING (first failure) ---
         assert client.post(f"/api/admin/clusters/{cid}/close-auction", headers=hdr(t1)).status_code == 403
         assert client.post(f"/api/admin/clusters/{cid}/close-auction", headers=hdr(ta)).json() == {"status": "CONFIRMING"}
-        prog = client.get("/api/bids/mine", headers=hdr(t2)).json()["bids"][0]
+        prog = next(x for x in client.get("/api/bids/mine", headers=hdr(t2)).json()["bids"] if x["cluster_id"] == cid)
         assert prog["status"] == "CONFIRMING" and prog["progress"] == {"accepted_qtl": 0, "rejected_qtl": 0, "pending_qtl": 25}
         client.portal.call(db.pool.execute, "UPDATE bids SET confirm_deadline = now() - interval '1 second' "
                                             "WHERE cluster_id = $1::uuid AND status = 'CONFIRMING'", cid)
         client.portal.call(bidding.tick, db.pool)
         got = client.get(f"/api/clusters/{cid}", headers=hdr(t1)).json()
         assert got["status"] == "BIDDING" and got["best_bid"] is None
-        assert client.get("/api/bids/mine", headers=hdr(t2)).json()["bids"][0]["status"] == "FAILED"
+        assert next(x for x in client.get("/api/bids/mine", headers=hdr(t2)).json()["bids"]
+                    if x["cluster_id"] == cid)["status"] == "FAILED"
 
         # --- round 2: buyer1 wins, 3 of 5 lots accept (15 q < min 20) -> fails again -> NO_BID ---
         client.post(url, headers=hdr(t1, "k4"), json={"price_per_qtl": 3100, "min_qty_qtl": 20})
@@ -157,10 +159,10 @@ def test_full_trade_flow(clean5):
             assert seen1 == ["bid.confirming", "cluster.updated", "deal.created", "cluster.updated"]
             assert [w2.receive_json()["type"] for _ in range(2)] == ["cluster.updated", "cluster.updated"]  # no deal data
 
-        deal = client.get("/api/deals/mine", headers=hdr(t1)).json()["deals"][0]
+        deal = next(d for d in client.get("/api/deals/mine", headers=hdr(t1)).json()["deals"] if d["cluster_id"] == cid)
         assert deal["qty_qtl"] == 25 and deal["gross_value"] == 77500 and deal["platform_fee"] == 1162.5
         assert deal["status"] == "CONFIRMED" and deal["fpo"]["name"] == "Dev FPO"
-        assert client.get("/api/deals/mine", headers=hdr(t2)).json() == {"deals": []}
+        assert all(d["cluster_id"] != cid for d in client.get("/api/deals/mine", headers=hdr(t2)).json()["deals"])
         assert client.post(f"/api/deals/{deal['id']}/payment-reported", headers=hdr(t1), json={}).json()["error"] == "PAYMENT_REF_REQUIRED"
         assert client.post(f"/api/deals/{deal['id']}/payment-reported", headers=hdr(t2), json={"payment_ref": "X"}
                            ).status_code == 404                                   # someone else's deal
@@ -169,7 +171,7 @@ def test_full_trade_flow(clean5):
         assert client.post(f"/api/deals/{deal['id']}/payment-reported", headers=hdr(t1), json={"payment_ref": "UTR123"}
                            ).json() == {"status": "PAYMENT_REPORTED"}
         assert client.post(f"/api/agent/deals/{deal['id']}/payment-confirmed", headers=hdr(tag)).json() == {"status": "PAID"}
-        assert client.get("/api/deals/mine", headers=hdr(t1)).json()["deals"][0]["status"] == "PAID"
+        assert next(d for d in client.get("/api/deals/mine", headers=hdr(t1)).json()["deals"] if d["id"] == deal["id"])["status"] == "PAID"
         assert client.get(f"/api/clusters/{cid}", headers=hdr(t1)).json()["status"] == "DEAL"
 
 

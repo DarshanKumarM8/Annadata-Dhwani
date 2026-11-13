@@ -1,0 +1,59 @@
+{
+  "records": [
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "13/11/2026",
+      "min_price": "2080",
+      "max_price": "2330",
+      "modal_price": "2160"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "12/11/2026",
+      "min_price": "2080",
+      "max_price": "2330",
+      "modal_price": "2170"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "11/11/2026",
+      "min_price": "2080",
+      "max_price": "2330",
+      "modal_price": "2180"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "10/11/2026",
+      "min_price": "2080",
+      "max_price": "2330",
+      "modal_price": "2190"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "09/11/2026",
+      "min_price": "2080",
+      "max_price": "2330",
+      "modal_price": "2200"
+    }
+  ]
+}

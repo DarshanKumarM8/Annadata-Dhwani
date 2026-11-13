@@ -32,8 +32,17 @@ async def main(floor: int | None, reset: bool) -> None:
     c = await asyncpg.connect(settings.database_url)
     r = aioredis.from_url(settings.redis_url, decode_responses=True)
     if reset:
+        # clear this farmer's listings and any trade built on them (responses, bids, deals, verifications, clusters)
+        await c.execute("DELETE FROM bid_responses WHERE listing_id IN (SELECT id FROM listings WHERE farmer_id = $1::uuid)",
+                        FARMER_ID)
         await c.execute("DELETE FROM listings WHERE farmer_id = $1::uuid", FARMER_ID)
-        await c.execute("DELETE FROM clusters c WHERE NOT EXISTS (SELECT 1 FROM listings l WHERE l.cluster_id = c.id)")
+        empty = "(SELECT c.id FROM clusters c WHERE NOT EXISTS (SELECT 1 FROM listings l WHERE l.cluster_id = c.id))"
+        await c.execute(f"UPDATE clusters SET best_bid_id = NULL WHERE id IN {empty}")
+        await c.execute(f"DELETE FROM deals WHERE cluster_id IN {empty}")
+        await c.execute(f"DELETE FROM bid_responses WHERE bid_id IN (SELECT id FROM bids WHERE cluster_id IN {empty})")
+        await c.execute(f"DELETE FROM bids WHERE cluster_id IN {empty}")
+        await c.execute(f"DELETE FROM verifications WHERE cluster_id IN {empty}")
+        await c.execute(f"DELETE FROM clusters WHERE id IN {empty}")
         await c.execute("DELETE FROM call_sessions WHERE phone = $1", PHONE)
         await c.execute("DELETE FROM triage_tickets WHERE phone = $1", PHONE)
         await c.execute("DELETE FROM consent_log WHERE farmer_id = $1::uuid", FARMER_ID)

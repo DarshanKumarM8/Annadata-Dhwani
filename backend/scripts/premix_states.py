@@ -6,19 +6,18 @@ import shutil
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from backend.app.services.audio import mix, AUDIO_ROOT, MIX_DIR
+from app.services.audio import mix, AUDIO_ROOT, MIX_DIR
 
 MIX_DIR.mkdir(parents=True, exist_ok=True)
 
 STATE_CLIPS = {
-    "lang.wav": (["welcome", "lang_option", "hi:lang_option"], "kn"),
+    "lang.wav": (["welcome", "kn:lang_option", "hi:lang_option", "en:lang_option"], "kn"),
     "consent.wav": (["consent"], "kn"),
     "crop.wav": (["crop_menu_intro", "cropkey_ragi_1", "cropkey_paddy_common_2", "cropkey_maize_3", "helper_key_0"], "kn"),
     "qty.wav": (["ask_qty"], "kn"),
-    "qty_confirm.wav": (["you_entered", "qty_10", "confirm_1_2"], "kn"),
+    # QTY_CONFIRM and FINAL include the caller's entered quantity and are mixed at runtime.
     "price.wav": (["fair_price_is", "d_2", "d_1", "d_0", "d_0", "rupees_per_qtl", "ask_price"], "kn"),
     "guard.wav": (["guard_warn", "d_2", "d_1", "d_0", "d_0", "rupees_per_qtl", "guard_options"], "kn"),
-    "final.wav": (["final_intro", "qty_10", "crop_ragi", "at_price", "d_2", "d_2", "d_0", "d_0", "rupees_per_qtl", "final_confirm"], "kn"),
     "done.wav": (["listed_ok", "your_number_is", "d_1", "d_0", "d_1", "will_call"], "kn"),
 }
 

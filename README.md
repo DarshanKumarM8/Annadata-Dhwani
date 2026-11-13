@@ -49,6 +49,7 @@ docker compose up -d
 
 This starts PostGIS on 5432 (schema from `db/001_schema.sql` loads automatically on the first start)
 and Valkey on 6379. To reload the schema from scratch: `docker compose down -v && docker compose up -d`.
+For an existing database, run `psql -d annadata -f db/003_add_english_language.sql` once so English selections can be saved.
 
 ### Backend (from D2)
 

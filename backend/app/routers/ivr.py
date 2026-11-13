@@ -18,7 +18,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from backend.app.services.pricing import get_floor
+from app.services.pricing import get_floor
 
 logger = logging.getLogger(__name__)
 
@@ -274,8 +274,18 @@ async def process_dtmf_event(payload: DtmfInputPayload, request: Request):
     res_status = "OK"
     listing_id: str | None = None
 
+    # A PRICE event must carry the quantity entered in the preceding QTY state.
+    # Never substitute a plausible-looking quantity when the client omits it.
+    if curr_state == "PRICE" and (
+        payload.qty_qtl is None or not 1 <= payload.qty_qtl <= 50
+    ):
+        next_state = "QTY"
+        dropped_reason = "OUT_OF_RANGE"
+        res_status = "DROPPED"
+        response_msg = "Enter a quantity from 1 to 50 quintals before submitting a price."
+
     # State 1: CROP SELECTION
-    if curr_state == "CROP":
+    elif curr_state == "CROP":
         if digits in CROP_KEYPAD_MAP:
             crop_selected = CROP_KEYPAD_MAP[digits]
             next_state = "QTY"
@@ -342,7 +352,7 @@ async def process_dtmf_event(payload: DtmfInputPayload, request: Request):
                                 lid,
                                 farmer_id,
                                 payload.crop_code or "ragi",
-                                payload.qty_qtl or 10.0,
+                                float(payload.qty_qtl),
                                 price_val,
                                 3430.0,
                                 uuid.UUID(payload.session_id) if payload.session_id else None,

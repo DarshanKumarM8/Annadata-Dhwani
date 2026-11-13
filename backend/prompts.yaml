@@ -29,10 +29,9 @@
 #   - "press" = the common spoken verb for pressing a phone key.
 #
 # SPECIAL CLIPS:
-#   lang_option  — the kn file says "For Kannada, press 1" IN Kannada;
-#                  the hi file says "For Hindi, press 2" IN Hindi.
-#                  Each language file is played in that language so the
-#                  farmer can identify their language before choosing.
+#   lang_option  — key 1 selects Kannada, 2 Hindi, and 3 English.
+#                  The prompt is played with explicit language overrides so
+#                  callers hear the choices in Kannada, Hindi, and English.
 #   qty_1..50    — "<n> quintal(s)" written as words.
 #   d_0..d_9     — digit names (zero, one, two, …, nine).
 #   cropkey_<crop>_<k> — "For <crop>, press <k>" for k=1,2,3.
@@ -46,10 +45,10 @@ welcome:
   reviewed: false
 
 lang_option:
-  en: "For Kannada, press one. For Hindi, press two."
+  en: "For Kannada, press one. For Hindi, press two. For English, press three."
   # NOTE: the kn file must say "For Kannada, press 1" IN Kannada.
   #       the hi file must say "For Hindi, press 2" IN Hindi.
-  #       Add those translations below when a native speaker provides them.
+  #       Add or update those translations below when a native speaker provides them.
   reviewed: false
 
 consent:
@@ -153,7 +152,7 @@ guard_warn:
   reviewed: false
 
 guard_options:
-  en: "To raise your price to the fair price, press one. To keep your price, press two. To type again, press three."
+  en: "To enter a new price, press one. To keep this price, press two. To set your price to the fair price, press three."
   reviewed: false
 
 final_intro:

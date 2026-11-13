@@ -50,7 +50,32 @@ docker compose up -d
 This starts PostGIS on 5432 (schema from `db/001_schema.sql` loads automatically on the first start)
 and Valkey on 6379. To reload the schema from scratch: `docker compose down -v && docker compose up -d`.
 
-Backend start-up instructions are added to this README when the backend lands (task D2 onwards).
+### Backend (from D2)
+
+With the containers up (and `.env` from `.env.example`; set `DB_PORT`/`DATABASE_URL` if 5432 is taken):
+
+```bash
+pip install -r backend/requirements.txt
+```
+
+```bash
+python backend/scripts/dev_min_seed.py --floor 3565
+```
+
+`dev_min_seed.py` loads minimal reference data and a test farmer (+919800000001) until Anirudh's `db/002_reference.sql`
+lands; `--floor` caches a ragi price floor (afpp 3430) so the price guardrail can be tried; `--reset` clears the test farmer.
+
+```bash
+cd backend && python -m uvicorn app.main:app --port 8000
+```
+
+In a second terminal, walk a full listing as the simulated phone (`--help` lists the options):
+
+```bash
+python backend/scripts/sim_client.py --price 3000 --bounce
+```
+
+Unit tests (no database needed): `cd backend && python -m pytest`. Set `SIM_RING_MIN=0.2 SIM_RING_MAX=0.3 SIM_HANGUP_DELAY=0.3` for quicker test calls.
 
 ## Folder ownership (only the owner edits a folder)
 

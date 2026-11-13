@@ -7,7 +7,7 @@ CREATE TABLE districts (
   state         text NOT NULL,               -- 'Karnataka'
   agmark_state  text NOT NULL,               -- spelling used by the price API
   agmark_district text NOT NULL,
-  default_lang  text NOT NULL CHECK (default_lang IN ('kn','hi','mr'))
+  default_lang  text NOT NULL CHECK (default_lang IN ('kn','hi','mr','en'))
 );
 
 CREATE TABLE crops (
@@ -62,7 +62,7 @@ CREATE TABLE farmers (
   district_code text NOT NULL REFERENCES districts(code),
   geog      geography(Point,4326) NOT NULL,  -- village centroid from FPO roster
   collection_point_id uuid NOT NULL REFERENCES collection_points(id),
-  lang      text CHECK (lang IN ('kn','hi','mr')),      -- NULL until chosen
+  lang      text CHECK (lang IN ('kn','hi','mr','en')), -- NULL until chosen
   consent_version text,                      -- NULL until consent given
   consent_at timestamptz,
   status    text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','BLOCKED')),

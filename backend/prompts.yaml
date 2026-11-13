@@ -1,10 +1,51 @@
+# backend/prompts.yaml
+# IVR audio clip definitions for Annadata Dhwani
+#
+# FORMAT:
+#   <clip_id>:
+#     en: "<English source text — always present, source of truth>"
+#     <lang_code>: "<translation — added by a native speaker for that language>"
+#     reviewed: false
+#
+# LANGUAGE POLICY:
+#   - Only English ("en") is stored here by default.
+#   - Language-specific translations (e.g. "kn", "hi", "mr") must be added
+#     by a native speaker of that language.  Do NOT put AI-generated or
+#     transliterated text here — TTS will mispronounce it.
+#   - The language used at runtime comes from the farmer's profile (set during
+#     the LANG IVR state) and is supplied by Exotel.  This file does not
+#     decide which languages exist; it only stores the text to synthesise.
+#   - To add a new language: add a "<lang_code>: ..." line under the clips
+#     you have translations for, then run:
+#       python backend/scripts/prewarm_audio.py --langs <lang_code> \
+#         --voices <lang_code>:<edge-tts-voice-name>
+#
+# RULES:
+#   - Each line under 12 words where possible.
+#   - Numbers written as words.
+#   - "quintal" kept as "quintal" (farmers use it).
+#   - Sentence fragments (you_entered, at_price, etc.) must sound natural
+#     when followed by a spoken number.
+#   - "press" = the common spoken verb for pressing a phone key.
+#
+# SPECIAL CLIPS:
+#   lang_option  — key 1 selects Kannada, 2 Hindi, and 3 English.
+#                  The prompt is played with explicit language overrides so
+#                  callers hear the choices in Kannada, Hindi, and English.
+#   qty_1..50    — "<n> quintal(s)" written as words.
+#   d_0..d_9     — digit names (zero, one, two, …, nine).
+#   cropkey_<crop>_<k> — "For <crop>, press <k>" for k=1,2,3.
+
+# ---------------------------------------------------------------------------
+# Core prompts
+# ---------------------------------------------------------------------------
 welcome:
   en: Welcome to Annadata Dhwani.
   kn: ಅನ್ನದಾತ ಧ್ವನಿಗೆ ಸ್ವಾಗತ.
   hi: अन्नदाता ध्वनि में आपका स्वागत है।
   reviewed: true
 lang_option:
-  en: For English, press 3.
+  en: "For Kannada, press one. For Hindi, press two. For English, press three."
   kn: ಕನ್ನಡಕ್ಕಾಗಿ, 1 ಒತ್ತಿರಿ.
   hi: हिंदी के लिए, 2 दबाइए।
   reviewed: true
@@ -108,12 +149,9 @@ guard_warn:
   en: Your price is below the fair price of
   reviewed: false
 guard_options:
-  en: Press 1 to raise to the fair price, press 2 to keep your price, or press 8 to
-    repeat.
-  kn: ನ್ಯಾಯಯುತ ಬೆಲೆಗೆ ಏರಿಸಲು 1 ಒತ್ತಿರಿ, ನಿಮ್ಮ ಬೆಲೆ ಉಳಿಸಲು 2 ಒತ್ತಿರಿ, ಮತ್ತೆ ಕೇಳಲು 8
-    ಒತ್ತಿರಿ.
-  hi: उचित भाव पर बढ़ाने के लिए 1 दबाएं, अपना भाव रखने के लिए 2 दबाएं, दोबारा सुनने
-    के लिए 8 दबाएं।
+  en: "To enter a new price, press one. To keep this price, press two. To set your price to the fair price, press three."
+  kn: ಹೊಸ ಬೆಲೆ ನಮೂದಿಸಲು 1 ಒತ್ತಿರಿ. ಈ ಬೆಲೆ ಉಳಿಸಲು 2 ಒತ್ತಿರಿ. ನ್ಯಾಯಯುತ ಬೆಲೆಗೆ ಹೊಂದಿಸಲು 3 ಒತ್ತಿರಿ.
+  hi: नया भाव दर्ज करने के लिए 1 दबाएं। यही भाव रखने के लिए 2 दबाएं। उचित भाव पर तय करने के लिए 3 दबाएं।
   reviewed: true
 final_intro:
   en: You are listing

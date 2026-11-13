@@ -121,9 +121,9 @@ async def _apply(deps, s: dict, digits: str) -> Action | None:
     one = digits if len(digits) == 1 else ""
 
     if st == "LANG":
-        if one not in ("1", "2"):
+        if one not in ("1", "2", "3"):
             return None
-        s["lang"] = "kn" if one == "1" else "hi"
+        s["lang"] = {"1": "kn", "2": "hi", "3": "en"}[one]
         await deps.set_lang(s["farmer_id"], s["lang"])
         return await (_enter(deps, s, "CONSENT") if not d.get("consented") else _home(deps, s))
 
@@ -192,13 +192,13 @@ async def _apply(deps, s: dict, digits: str) -> Action | None:
 
     if st == "GUARD":
         if one == "1":
-            d["price"], d["guardrail"] = int(d["floor"]["afpp"]), "RAISED"
-            return await _enter(deps, s, "FINAL")
+            return await _enter(deps, s, "PRICE")
         if one == "2":
             d["guardrail"] = "KEPT_BELOW"
             return await _enter(deps, s, "FINAL")
         if one == "3":
-            return await _enter(deps, s, "PRICE")
+            d["price"], d["guardrail"] = int(d["floor"]["afpp"]), "RAISED"
+            return await _enter(deps, s, "FINAL")
         return None
 
     if st == "OFFER":

@@ -78,6 +78,18 @@ async def test_hindi_choice_sets_language():
     assert s["lang"] == "hi" and acts[-1].lang == "hi" and d.langs == ["hi"]
 
 
+async def test_english_choice_sets_language():
+    d = FakeDeps(lang=None, consented=True)
+    acts, s = await walk(d, ["3"])
+    assert s["lang"] == "en" and acts[-1].lang == "en" and d.langs == ["en"]
+
+
+async def test_language_menu_offers_english():
+    acts, _ = await walk(FakeDeps(lang=None), [])
+    assert acts[0].state == "LANG"
+    assert acts[0].clips == ["welcome", "kn:lang_option", "hi:lang_option", "en:lang_option"]
+
+
 async def test_consent_refused_ends_call():
     acts, s = await walk(FakeDeps(consented=False), ["2"])
     assert acts[-1].state == "BYE" and acts[-1].hangup and s["data"]["consented"] is False
@@ -110,7 +122,7 @@ async def test_no_floor_skips_guardrail_and_records_it():
     assert acts[-1].state == "DONE" and d.committed[-1]["guardrail"] == "NO_PRICE_DATA"
 
 
-@pytest.mark.parametrize("guard_key,price,guardrail", [("1", 3430, "RAISED"), ("2", 3000, "KEPT_BELOW")])
+@pytest.mark.parametrize("guard_key,price,guardrail", [("2", 3000, "KEPT_BELOW"), ("3", 3430, "RAISED")])
 async def test_guardrail_options(guard_key, price, guardrail):
     d = FakeDeps()
     acts, _ = await walk(d, ["1", "17", "1", "3000"])
@@ -118,6 +130,15 @@ async def test_guardrail_options(guard_key, price, guardrail):
     acts, _ = await walk(d, ["1", "17", "1", "3000", guard_key, "1"])
     assert acts[-2].state == "FINAL" and acts[-1].state == "DONE"
     assert d.committed[-1]["price"] == price and d.committed[-1]["guardrail"] == guardrail
+
+
+async def test_guard_1_reenters_price_and_confirms_replacement():
+    d = FakeDeps()
+    acts, _ = await walk(d, ["1", "17", "1", "3000", "1", "3500", "1"])
+    assert [a.state for a in acts[-4:]] == ["GUARD", "PRICE", "FINAL", "DONE"]
+    assert "ask_price" in acts[-3].clips
+    assert d.committed[-1]["price"] == 3500
+    assert d.committed[-1]["guardrail"] == "NONE"
 
 
 async def test_guard_threshold_is_97_percent_of_floor():
@@ -128,8 +149,8 @@ async def test_guard_threshold_is_97_percent_of_floor():
     assert acts[-1].state == "GUARD"
 
 
-async def test_guard_3_reenters_price():
-    acts, _ = await walk(FakeDeps(), ["1", "17", "1", "3000", "3"])
+async def test_guard_1_reenters_price():
+    acts, _ = await walk(FakeDeps(), ["1", "17", "1", "3000", "1"])
     assert acts[-1].state == "PRICE"
 
 
@@ -141,6 +162,13 @@ async def test_qty_out_of_range_and_reenter():
     acts, _ = await walk(FakeDeps(), ["1", "17", "2"])      # 2 at QTY_CONFIRM = enter again
     assert acts[-1].state == "QTY"
     assert acts[-2].state == "QTY_CONFIRM" and acts[-2].clips == ["you_entered", "qty_17", "confirm_1_2"]
+
+
+async def test_qty_above_ten_is_read_back_exactly():
+    acts, s = await walk(FakeDeps(), ["1", "42"])
+    assert acts[-1].state == "QTY_CONFIRM"
+    assert s["data"]["qty"] == 42
+    assert acts[-1].clips == ["you_entered", "qty_42", "confirm_1_2"]
 
 
 async def test_final_2_restarts_at_crop():

@@ -34,7 +34,7 @@ def clips_for(state: str, s: dict) -> list[str]:
     d = s["data"]
     floor = d.get("floor")
     if state == "LANG":
-        return ["welcome", "lang_option", "hi:lang_option"]
+        return ["welcome", "kn:lang_option", "hi:lang_option", "en:lang_option"]
     if state == "CONSENT":
         return ["consent"]
     if state == "MAIN":

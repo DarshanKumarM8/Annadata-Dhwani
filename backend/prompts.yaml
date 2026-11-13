@@ -1,486 +1,364 @@
-# backend/prompts.yaml
-# IVR audio clip definitions for Annadata Dhwani
-#
-# FORMAT:
-#   <clip_id>:
-#     en: "<English source text — always present, source of truth>"
-#     <lang_code>: "<translation — added by a native speaker for that language>"
-#     reviewed: false
-#
-# LANGUAGE POLICY:
-#   - Only English ("en") is stored here by default.
-#   - Language-specific translations (e.g. "kn", "hi", "mr") must be added
-#     by a native speaker of that language.  Do NOT put AI-generated or
-#     transliterated text here — TTS will mispronounce it.
-#   - The language used at runtime comes from the farmer's profile (set during
-#     the LANG IVR state) and is supplied by Exotel.  This file does not
-#     decide which languages exist; it only stores the text to synthesise.
-#   - To add a new language: add a "<lang_code>: ..." line under the clips
-#     you have translations for, then run:
-#       python backend/scripts/prewarm_audio.py --langs <lang_code> \
-#         --voices <lang_code>:<edge-tts-voice-name>
-#
-# RULES:
-#   - Each line under 12 words where possible.
-#   - Numbers written as words.
-#   - "quintal" kept as "quintal" (farmers use it).
-#   - Sentence fragments (you_entered, at_price, etc.) must sound natural
-#     when followed by a spoken number.
-#   - "press" = the common spoken verb for pressing a phone key.
-#
-# SPECIAL CLIPS:
-#   lang_option  — the kn file says "For Kannada, press 1" IN Kannada;
-#                  the hi file says "For Hindi, press 2" IN Hindi.
-#                  Each language file is played in that language so the
-#                  farmer can identify their language before choosing.
-#   qty_1..50    — "<n> quintal(s)" written as words.
-#   d_0..d_9     — digit names (zero, one, two, …, nine).
-#   cropkey_<crop>_<k> — "For <crop>, press <k>" for k=1,2,3.
-
-# ---------------------------------------------------------------------------
-# Core prompts
-# ---------------------------------------------------------------------------
-
 welcome:
-  en: "Welcome to Annadata Dhwani."
-  reviewed: false
-
+  en: Welcome to Annadata Dhwani.
+  kn: ಅನ್ನದಾತ ಧ್ವನಿಗೆ ಸ್ವಾಗತ.
+  hi: अन्नदाता ध्वनि में आपका स्वागत है।
+  reviewed: true
 lang_option:
-  en: "For Kannada, press one. For Hindi, press two."
-  # NOTE: the kn file must say "For Kannada, press 1" IN Kannada.
-  #       the hi file must say "For Hindi, press 2" IN Hindi.
-  #       Add those translations below when a native speaker provides them.
-  reviewed: false
-
+  en: For English, press 3.
+  kn: ಕನ್ನಡಕ್ಕಾಗಿ, 1 ಒತ್ತಿರಿ.
+  hi: हिंदी के लिए, 2 दबाइए।
+  reviewed: true
 consent:
-  en: "We will save your name, phone number, village and the crops you list, to find buyers for you. We do not record this call. Press one to agree, or two to exit."
-  reviewed: false
-
+  en: We save your crop details to find wholesale buyers. Press 1 to agree, or 2 to
+    exit.
+  kn: ಖರೀದಿದಾರರನ್ನು ಹುಡುಕಲು ನಿಮ್ಮ ಬೆಳೆ ವಿವರ ಉಳಿಸುತ್ತೇವೆ. ಒಪ್ಪಲು 1 ಒತ್ತಿರಿ, ನಿರ್ಗಮಿಸಲು
+    2 ಒತ್ತಿರಿ.
+  hi: खरीदार ढूंढने के लिए हम आपकी फसल की जानकारी सहेजते हैं। सहमति के लिए 1 दबाएं,
+    बाहर निकलने के लिए 2 दबाएं।
+  reviewed: true
 main_menu:
-  en: "You already have a crop listed. Press one to list a new crop. Press zero for a helper."
+  en: You already have a crop listed. Press one to list a new crop. Press zero for
+    a helper.
   reviewed: false
-
 crop_menu_intro:
-  en: "Which crop do you want to sell?"
-  reviewed: false
-
+  en: Which crop do you want to sell today?
+  kn: ಇಂದು ನೀವು ಯಾವ ಬೆಳೆ ಮಾರಾಟ ಮಾಡಲು ಬಯಸುತ್ತೀರಿ?
+  hi: आज आप कौन सी फसल बेचना चाहते हैं?
+  reviewed: true
 cropkey_ragi_1:
-  en: "For ragi, press one."
-  reviewed: false
-
+  en: For Ragi, press 1.
+  kn: ರಾಗಿಗಾಗಿ, 1 ಒತ್ತಿರಿ.
+  hi: रागी के लिए, 1 दबाएं।
+  reviewed: true
 cropkey_ragi_2:
-  en: "For ragi, press two."
+  en: For ragi, press two.
   reviewed: false
-
 cropkey_ragi_3:
-  en: "For ragi, press three."
+  en: For ragi, press three.
   reviewed: false
-
 cropkey_paddy_common_1:
-  en: "For paddy, press one."
+  en: For paddy, press one.
   reviewed: false
-
 cropkey_paddy_common_2:
-  en: "For paddy, press two."
-  reviewed: false
-
+  en: For Paddy, press 2.
+  kn: ಭತ್ತಕ್ಕಾಗಿ, 2 ಒತ್ತಿರಿ.
+  hi: धान के लिए, 2 दबाएं।
+  reviewed: true
 cropkey_paddy_common_3:
-  en: "For paddy, press three."
+  en: For paddy, press three.
   reviewed: false
-
 cropkey_maize_1:
-  en: "For maize, press one."
+  en: For maize, press one.
   reviewed: false
-
 cropkey_maize_2:
-  en: "For maize, press two."
+  en: For maize, press two.
   reviewed: false
-
 cropkey_maize_3:
-  en: "For maize, press three."
-  reviewed: false
-
+  en: For Maize, press 3.
+  kn: ಮೆಕ್ಕೆಜೋಳಕ್ಕಾಗಿ, 3 ಒತ್ತಿರಿ.
+  hi: मक्का के लिए, 3 दबाएं।
+  reviewed: true
 helper_key_0:
-  en: "For a helper, press zero."
+  en: For a helper, press zero.
   reviewed: false
-
 crop_ragi:
-  en: "Ragi."
+  en: Ragi.
   reviewed: false
-
 crop_paddy_common:
-  en: "Paddy."
+  en: Paddy.
   reviewed: false
-
 crop_maize:
-  en: "Maize."
+  en: Maize.
   reviewed: false
-
 ask_qty:
-  en: "How many quintals? One quintal is one hundred kilos. Type the number, then press hash."
-  reviewed: false
-
+  en: Enter your quantity in quintals, then press the hash key. Or press 8 to repeat.
+  kn: ನಿಮ್ಮ ಬೆಳೆಯ ಪ್ರಮಾಣವನ್ನು ಕ್ವಿಂಟಾಲ್ಗಳಲ್ಲಿ ನಮೂದಿಸಿ, ನಂತರ ಹ್ಯಾಶ್ ಒತ್ತಿರಿ. ಮತ್ತೆ
+    ಕೇಳಲು 8 ಒತ್ತಿರಿ.
+  hi: अपनी मात्रा क्विंटल में दर्ज करें, फिर हैश दबाएं। दोबारा सुनने के लिए 8 दबाएं।
+  reviewed: true
 you_entered:
-  en: "You entered"
+  en: You entered
   reviewed: false
-
 confirm_1_2:
-  en: "If correct, press one. To enter again, press two."
-  reviewed: false
-
+  en: If correct, press 1. To enter again, press 2. To repeat, press 8.
+  kn: ಸರಿಯಾಗಿದ್ದರೆ 1 ಒತ್ತಿರಿ. ಮತ್ತೆ ನಮೂದಿಸಲು 2 ಒತ್ತಿರಿ. ಮತ್ತೆ ಕೇಳಲು 8 ಒತ್ತಿರಿ.
+  hi: सही है तो 1 दबाएं। फिर से दर्ज करने के लिए 2 दबाएं। दोबारा सुनने के लिए 8 दबाएं।
+  reviewed: true
 mandi_price_was:
-  en: "The mandi price in your district was"
+  en: The mandi price in your district was
   reviewed: false
-
 fair_price_is:
-  en: "The fair price at your village is"
+  en: The fair price at your village is
   reviewed: false
-
 rupees_per_qtl:
-  en: "rupees per quintal."
+  en: rupees per quintal.
   reviewed: false
-
 no_price_today:
-  en: "No mandi price is available today."
+  en: No mandi price is available today.
   reviewed: false
-
 ask_price:
-  en: "Type your price per quintal in rupees, then press hash."
-  reviewed: false
-
+  en: Enter your asking price per quintal in rupees, then press hash. Or press 8 to
+    repeat.
+  kn: ಪ್ರತಿ ಕ್ವಿಂಟಾಲ್ಗೆ ನಿಮ್ಮ ಬೆಲೆಯನ್ನು ರೂಪಾಯಿಗಳಲ್ಲಿ ಟೈಪ್ ಮಾಡಿ, ಹ್ಯಾಶ್ ಒತ್ತಿರಿ. ಮತ್ತೆ
+    ಕೇಳಲು 8 ಒತ್ತಿರಿ.
+  hi: प्रति क्विंटल अपना भाव रुपये में टाइप करें, फिर हैश दबाएं। दोबारा सुनने के लिए
+    8 दबाएं।
+  reviewed: true
 guard_warn:
-  en: "Your price is below the fair price of"
+  en: Your price is below the fair price of
   reviewed: false
-
 guard_options:
-  en: "To raise your price to the fair price, press one. To keep your price, press two. To type again, press three."
-  reviewed: false
-
+  en: Press 1 to raise to the fair price, press 2 to keep your price, or press 8 to
+    repeat.
+  kn: ನ್ಯಾಯಯುತ ಬೆಲೆಗೆ ಏರಿಸಲು 1 ಒತ್ತಿರಿ, ನಿಮ್ಮ ಬೆಲೆ ಉಳಿಸಲು 2 ಒತ್ತಿರಿ, ಮತ್ತೆ ಕೇಳಲು 8
+    ಒತ್ತಿರಿ.
+  hi: उचित भाव पर बढ़ाने के लिए 1 दबाएं, अपना भाव रखने के लिए 2 दबाएं, दोबारा सुनने
+    के लिए 8 दबाएं।
+  reviewed: true
 final_intro:
-  en: "You are listing"
+  en: You are listing
   reviewed: false
-
 at_price:
-  en: "at a price of"
+  en: at a price of
   reviewed: false
-
 final_confirm:
-  en: "To confirm, press one. To start again, press two."
-  reviewed: false
-
+  en: Press 1 to confirm your listing, press 2 to change, or press 8 to repeat.
+  kn: ಖಚಿತಪಡಿಸಲು 1 ಒತ್ತಿರಿ, ಬದಲಾಯಿಸಲು 2 ಒತ್ತಿರಿ, ಮತ್ತೆ ಕೇಳಲು 8 ಒತ್ತಿರಿ.
+  hi: पुष्टि करने के लिए 1 दबाएं, बदलने के लिए 2 दबाएं, दोबारा सुनने के लिए 8 दबाएं।
+  reviewed: true
 listed_ok:
-  en: "Your crop is listed."
+  en: Your crop is listed.
   reviewed: false
-
 your_number_is:
-  en: "Your listing number is"
+  en: Your listing number is
   reviewed: false
-
 will_call:
-  en: "We will call you when a buyer makes an offer. Goodbye."
+  en: We will call you when a buyer makes an offer. Goodbye.
   reviewed: false
-
 welcome_back:
-  en: "Welcome back. Let us continue where you stopped."
+  en: Welcome back. Let us continue where you stopped.
   reviewed: false
-
 bad_input:
-  en: "Sorry, that was not valid."
+  en: Sorry, that was not valid.
   reviewed: false
-
 already_listed:
-  en: "You already have this crop listed."
+  en: You already have this crop listed.
   reviewed: false
-
 bye:
-  en: "Thank you. Goodbye."
+  en: Thank you. Goodbye.
   reviewed: false
-
 helper_will_call:
-  en: "A helper from your FPO will call you."
+  en: A helper from your FPO will call you.
   reviewed: false
-
 helper_code_is:
-  en: "Only talk to a helper who tells you this code:"
+  en: 'Only talk to a helper who tells you this code:'
   reviewed: false
-
 not_registered:
-  en: "This number is not registered with your FPO."
+  en: This number is not registered with your FPO.
   reviewed: false
-
 offer_intro:
-  en: "Good news. A buyer offers"
+  en: Good news. A buyer offers
   reviewed: false
-
 for_your:
-  en: "for your"
+  en: for your
   reviewed: false
-
 your_ask_was:
-  en: "Your asking price was"
+  en: Your asking price was
   reviewed: false
-
 offer_options:
-  en: "To accept, press one. To reject, press two. To hear again, press nine."
+  en: To accept, press one. To reject, press two. To hear again, press nine.
   reviewed: false
-
 offer_confirm:
-  en: "You are accepting this offer. To confirm, press one. To go back, press two."
+  en: You are accepting this offer. To confirm, press one. To go back, press two.
   reviewed: false
-
 offer_done:
-  en: "Accepted. Your FPO will tell you the pickup day. Goodbye."
+  en: Accepted. Your FPO will tell you the pickup day. Goodbye.
   reviewed: false
-
 offer_rejected:
-  en: "You rejected the offer. Your crop stays listed. Goodbye."
+  en: You rejected the offer. Your crop stays listed. Goodbye.
   reviewed: false
-
-# ---------------------------------------------------------------------------
-# Digit clips — d_0 .. d_9
-# Numbers other than quantity are spoken digit by digit (3430 → d_3 d_4 d_3 d_0)
-# ---------------------------------------------------------------------------
-
 d_0:
-  en: "zero"
+  en: zero
   reviewed: false
-
 d_1:
-  en: "one"
+  en: one
   reviewed: false
-
 d_2:
-  en: "two"
+  en: two
   reviewed: false
-
 d_3:
-  en: "three"
+  en: three
   reviewed: false
-
 d_4:
-  en: "four"
+  en: four
   reviewed: false
-
 d_5:
-  en: "five"
+  en: five
   reviewed: false
-
 d_6:
-  en: "six"
+  en: six
   reviewed: false
-
 d_7:
-  en: "seven"
+  en: seven
   reviewed: false
-
 d_8:
-  en: "eight"
+  en: eight
   reviewed: false
-
 d_9:
-  en: "nine"
+  en: nine
   reviewed: false
-
-# ---------------------------------------------------------------------------
-# Quantity clips — qty_1 .. qty_50
-# ---------------------------------------------------------------------------
-
 qty_1:
-  en: "one quintal"
+  en: one quintal
   reviewed: false
-
 qty_2:
-  en: "two quintals"
+  en: two quintals
   reviewed: false
-
 qty_3:
-  en: "three quintals"
+  en: three quintals
   reviewed: false
-
 qty_4:
-  en: "four quintals"
+  en: four quintals
   reviewed: false
-
 qty_5:
-  en: "five quintals"
+  en: five quintals
   reviewed: false
-
 qty_6:
-  en: "six quintals"
+  en: six quintals
   reviewed: false
-
 qty_7:
-  en: "seven quintals"
+  en: seven quintals
   reviewed: false
-
 qty_8:
-  en: "eight quintals"
+  en: eight quintals
   reviewed: false
-
 qty_9:
-  en: "nine quintals"
+  en: nine quintals
   reviewed: false
-
 qty_10:
-  en: "ten quintals"
+  en: ten quintals
   reviewed: false
-
 qty_11:
-  en: "eleven quintals"
+  en: eleven quintals
   reviewed: false
-
 qty_12:
-  en: "twelve quintals"
+  en: twelve quintals
   reviewed: false
-
 qty_13:
-  en: "thirteen quintals"
+  en: thirteen quintals
   reviewed: false
-
 qty_14:
-  en: "fourteen quintals"
+  en: fourteen quintals
   reviewed: false
-
 qty_15:
-  en: "fifteen quintals"
+  en: fifteen quintals
   reviewed: false
-
 qty_16:
-  en: "sixteen quintals"
+  en: sixteen quintals
   reviewed: false
-
 qty_17:
-  en: "seventeen quintals"
+  en: seventeen quintals
   reviewed: false
-
 qty_18:
-  en: "eighteen quintals"
+  en: eighteen quintals
   reviewed: false
-
 qty_19:
-  en: "nineteen quintals"
+  en: nineteen quintals
   reviewed: false
-
 qty_20:
-  en: "twenty quintals"
+  en: twenty quintals
   reviewed: false
-
 qty_21:
-  en: "twenty one quintals"
+  en: twenty one quintals
   reviewed: false
-
 qty_22:
-  en: "twenty two quintals"
+  en: twenty two quintals
   reviewed: false
-
 qty_23:
-  en: "twenty three quintals"
+  en: twenty three quintals
   reviewed: false
-
 qty_24:
-  en: "twenty four quintals"
+  en: twenty four quintals
   reviewed: false
-
 qty_25:
-  en: "twenty five quintals"
+  en: twenty five quintals
   reviewed: false
-
 qty_26:
-  en: "twenty six quintals"
+  en: twenty six quintals
   reviewed: false
-
 qty_27:
-  en: "twenty seven quintals"
+  en: twenty seven quintals
   reviewed: false
-
 qty_28:
-  en: "twenty eight quintals"
+  en: twenty eight quintals
   reviewed: false
-
 qty_29:
-  en: "twenty nine quintals"
+  en: twenty nine quintals
   reviewed: false
-
 qty_30:
-  en: "thirty quintals"
+  en: thirty quintals
   reviewed: false
-
 qty_31:
-  en: "thirty one quintals"
+  en: thirty one quintals
   reviewed: false
-
 qty_32:
-  en: "thirty two quintals"
+  en: thirty two quintals
   reviewed: false
-
 qty_33:
-  en: "thirty three quintals"
+  en: thirty three quintals
   reviewed: false
-
 qty_34:
-  en: "thirty four quintals"
+  en: thirty four quintals
   reviewed: false
-
 qty_35:
-  en: "thirty five quintals"
+  en: thirty five quintals
   reviewed: false
-
 qty_36:
-  en: "thirty six quintals"
+  en: thirty six quintals
   reviewed: false
-
 qty_37:
-  en: "thirty seven quintals"
+  en: thirty seven quintals
   reviewed: false
-
 qty_38:
-  en: "thirty eight quintals"
+  en: thirty eight quintals
   reviewed: false
-
 qty_39:
-  en: "thirty nine quintals"
+  en: thirty nine quintals
   reviewed: false
-
 qty_40:
-  en: "forty quintals"
+  en: forty quintals
   reviewed: false
-
 qty_41:
-  en: "forty one quintals"
+  en: forty one quintals
   reviewed: false
-
 qty_42:
-  en: "forty two quintals"
+  en: forty two quintals
   reviewed: false
-
 qty_43:
-  en: "forty three quintals"
+  en: forty three quintals
   reviewed: false
-
 qty_44:
-  en: "forty four quintals"
+  en: forty four quintals
   reviewed: false
-
 qty_45:
-  en: "forty five quintals"
+  en: forty five quintals
   reviewed: false
-
 qty_46:
-  en: "forty six quintals"
+  en: forty six quintals
   reviewed: false
-
 qty_47:
-  en: "forty seven quintals"
+  en: forty seven quintals
   reviewed: false
-
 qty_48:
-  en: "forty eight quintals"
+  en: forty eight quintals
   reviewed: false
-
 qty_49:
-  en: "forty nine quintals"
+  en: forty nine quintals
   reviewed: false
-
 qty_50:
-  en: "fifty quintals"
+  en: fifty quintals
   reviewed: false
+repeat_opt:
+  en: To hear this again, press 8.
+  kn: ಮತ್ತೆ ಕೇಳಲು, 8 ಒತ್ತಿರಿ.
+  hi: दोबारा सुनने के लिए, 8 दबाइए।
+  reviewed: true

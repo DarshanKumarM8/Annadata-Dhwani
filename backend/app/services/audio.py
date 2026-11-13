@@ -43,9 +43,9 @@ else:
 
 MIX_DIR = AUDIO_ROOT / "mix"
 
-# 150 ms of silence at 8000 Hz, 16-bit mono
-_SILENCE_FRAMES = int(0.150 * 8000)
-_SILENCE_BYTES = b"\x00" * (_SILENCE_FRAMES * 2)  # sampwidth=2
+# 280 ms of silence at 8000 Hz, 16-bit mono (2 bytes per sample)
+_SILENCE_FRAMES = int(0.280 * 8000)
+_SILENCE_BYTES = b"\x00\x00" * _SILENCE_FRAMES
 
 
 # ---------------------------------------------------------------------------

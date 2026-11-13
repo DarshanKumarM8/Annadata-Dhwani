@@ -41,6 +41,14 @@ async def ops_calls(_: dict = admin):
             "breaker": {"calls_today": used, "budget": settings.daily_call_budget}}
 
 
+@router.get("/ops/exotel-trace")
+async def exotel_trace(limit: int = 60, _: dict = admin):
+    """The last Exotel webhook requests, newest first (no secret; phone numbers masked)."""
+    import json
+    rows = await cache.redis.lrange("exo:trace", 0, max(1, min(limit, 300)) - 1)
+    return {"events": [json.loads(r) for r in rows]}
+
+
 @router.get("/ops/dtmf")
 async def ops_dtmf(limit: int = 50, _: dict = admin):
     rows = await db.pool.fetch("""SELECT session_id::text, state_before, digits, state_after, dropped_reason, at

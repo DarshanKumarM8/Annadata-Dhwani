@@ -20,16 +20,33 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname
 SAMPLE = ROOT / "contracts" / "fixtures" / "sample.wav"
 
 
+async def _warm_prompts() -> None:
+    """Mix the prompts every call starts with, so the first caller of the day does not wait for audio to be built."""
+    from .engine.audio_shim import mix_url
+    sets = [["welcome", "kn:lang_option", "hi:lang_option", "en:lang_option"], ["consent"], ["main_menu"], ["ask_qty"],
+            ["crop_menu_intro", "cropkey_ragi_1", "cropkey_paddy_common_2", "cropkey_maize_3", "helper_key_0"]]
+    try:
+        for lang in ("kn", "hi", "en"):
+            for clips in sets:
+                await asyncio.to_thread(mix_url, clips, lang)
+    except Exception:
+        logging.getLogger("startup").warning("prompt pre-load stopped early", exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     pool = await db.connect()
     await cache.connect()
     app.state.deps = PgDeps(pool)
+    if settings.provider == "exotel" and not settings.public_base_url.startswith("https://"):
+        logging.getLogger("startup").warning("PUBLIC_BASE_URL=%s is not an https address: Exotel cannot fetch the prompts", settings.public_base_url)
+    warm = asyncio.create_task(_warm_prompts())
     sweep = asyncio.create_task(sweeper.run())
     hub = asyncio.create_task(ws.hub.run())
     auctions = asyncio.create_task(bidding.run())
     worker = asyncio.create_task(jobs.run())
     yield
+    warm.cancel()
     sweep.cancel()
     hub.cancel()
     auctions.cancel()

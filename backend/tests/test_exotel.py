@@ -12,7 +12,7 @@ from app.engine.deps import PgDeps
 from app.main import app
 from app.services import bidding, jobs
 from app.telephony import base, exotel, sim
-from test_d4 import setup_farmers
+from test_d4 import PASSWORD, setup_farmers
 from test_jobs import full_teardown, make_round
 from test_reliability import STACK_UP
 
@@ -321,3 +321,54 @@ async def test_seeded_demo_numbers_are_never_dialed_even_without_a_team_list(env
         assert j["status"] == "FAILED" and j["last_error"] == "SIMULATED_NUMBER" and fake.requests == []
     finally:
         await pool.execute("DELETE FROM call_jobs WHERE phone = $1", sim)
+
+
+def test_normalize_e164_is_strict():
+    assert exotel.normalize_e164(' "098450-12345" ') == "+919845012345"
+    assert exotel.normalize_e164("+91 98450 12345") == "+919845012345" and exotel.normalize_e164("9845012345") == "+919845012345"
+    assert exotel.normalize_e164("12345") == "" and exotel.normalize_e164("") == "" and exotel.normalize_e164(None) == ""
+
+
+async def test_the_menu_is_repeated_when_nobody_presses_a_key_but_the_closing_prompt_is_not(env):
+    pool, fake, http = env
+    (phone, _), = await setup_farmers(1)
+    sid = (await start_callback(pool, http, phone))["provider_call_id"]
+    g = await gather(http, sid, 1)
+    assert g["repeat_menu"] == 2 and g["input_timeout"] > 1                       # Exotel's default would hang up after one wait
+    for step, d in enumerate(["1", "1", "1", "17", "1", "3600", "1"], start=1):    # finish a listing
+        await digits(http, sid, step, d)
+        last = await gather(http, sid, step + 1)
+    assert last["repeat_menu"] == 0 and last["input_timeout"] == 1                 # the closing prompt plays once
+
+
+async def test_a_call_exotel_starts_itself_is_served_for_a_registered_team_farmer(env):
+    pool, fake, http = env
+    (phone, _), (stranger, _) = await setup_farmers(2)
+    object.__setattr__(settings, "team_phones", frozenset({phone[-10:]}))
+    # no callmap entry: Exotel itself connected the call (or the entry expired). The caller's number identifies the farmer.
+    r = await http.get(url("gather"), params={"CallSid": "EXT" + uuid.uuid4().hex[:8], "step": 1, "CallFrom": "0" + phone[3:]})
+    assert r.status_code == 200 and r.json()["max_input_digits"] == 1 and r.json()["input_timeout"] > 1
+    assert await cache.redis.exists(f"sess:{phone}")                                 # a fresh session, not a hang-up
+    # a number outside the team list, or one that is not a farmer at all, is refused
+    assert (await http.get(url("gather"), params={"CallSid": "EXT2", "step": 1, "CallFrom": "0" + stranger[3:]})).status_code == 403
+    assert (await http.get(url("gather"), params={"CallSid": "EXT3", "step": 1, "CallFrom": "09000000000"})).status_code == 403
+
+
+async def test_every_exotel_request_is_traced_without_the_secret_or_full_numbers(env):
+    pool, fake, http = env
+    (phone, _), = await setup_farmers(1)
+    await cache.redis.delete("exo:trace")
+    sid = (await start_callback(pool, http, phone))["provider_call_id"]
+    await gather(http, sid, 1)
+    await digits(http, sid, 1, "1")
+    await http.post(url("status"), data={"CallSid": sid, "Status": "completed", "DialCallDuration": "26"})
+    rows = [json.loads(x) for x in await cache.redis.lrange("exo:trace", 0, -1)]
+    assert [r["path"] for r in reversed(rows)] == ["missed", "gather", "digits", "status"]
+    assert next(r for r in rows if r["path"] == "status")["duration"] == "26"
+    g = next(r for r in rows if r["path"] == "gather")
+    assert g["note"].startswith("state=LANG") and g["code"] == 200
+    blob = json.dumps(rows)
+    assert SECRET not in blob and phone not in blob                                # no secret, no full phone number
+    admin = (await http.post("/api/auth/buyer/login", json={"email": "admin@demo.test", "password": PASSWORD})).json()["token"]
+    ev = (await http.get("/api/ops/exotel-trace?limit=10", headers={"Authorization": "Bearer " + admin})).json()["events"]
+    assert ev[0]["path"] == "status" and len(ev) == 4

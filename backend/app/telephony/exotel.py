@@ -21,6 +21,8 @@ import hmac
 import json
 import logging
 import re
+import time
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -59,6 +61,11 @@ def normalise(raw: str) -> str | None:
     return "+" + d if len(d) == 12 and d.startswith("91") else None
 
 
+def normalize_e164(raw: str) -> str:
+    """Strict form of normalise(): '' instead of None for anything that is not an Indian mobile number."""
+    return normalise(raw) or ""
+
+
 def strip_digits(raw: str) -> str:
     """Exotel wraps the collected digits in literal quotes ('"17"' -> '17') and may leave the terminator on ('15#' -> '15')."""
     return (raw or "").strip().strip('"').strip("'").strip().rstrip("#").strip()
@@ -80,9 +87,13 @@ def _absolute(url: str) -> str:
 
 def _gather_json(a: Action) -> dict:
     """Terminal prompts play once: the Gather waits 1 s for a key and the following Passthru ends the call."""
+    closing = a.hangup or not a.max_digits
     return {"gather_prompt": {"audio_url": _absolute(mix_url(a.clips, a.lang))},
             "max_input_digits": a.max_digits or 1, "finish_on_key": a.finish_on_key or "#",
-            "input_timeout": 1 if (a.hangup or not a.max_digits) else a.timeout_s}
+            "input_timeout": 1 if closing else a.timeout_s,
+            # Exotel's default is repeat_menu=0: a farmer who has not pressed a key by the timeout is hung up on.
+            # Repeating the menu twice gives people time to find the key (the closing prompt is never repeated).
+            "repeat_menu": 0 if closing else 2}
 
 
 async def _remember(sid: str, a: Action) -> None:
@@ -92,6 +103,47 @@ async def _remember(sid: str, a: Action) -> None:
 async def _recall(sid: str) -> Action | None:
     raw = await cache.redis.get(f"exo:act:{sid}")
     return Action(**json.loads(raw)) if raw else None
+
+
+async def _trace(path: str, p: dict, code: int, ms: float = 0.0, note: str = "") -> None:
+    """Keep the last 300 Exotel requests (no secret, phone numbers masked) so a failed call can be read back with
+    GET /api/ops/exotel-trace or scripts/exotel_trace.py."""
+    try:
+        def m(x: str) -> str:
+            n = normalize_e164(x)
+            return n[:5] + "****" + n[-3:] if n else (x[:3] + "..." if x else "")
+        row = {"t": datetime.now(timezone.utc).isoformat(timespec="seconds"), "path": path, "sid": (p.get("CallSid") or "")[-8:],
+               "step": p.get("step"), "from": m(p.get("CallFrom") or p.get("From", "")), "to": m(p.get("CallTo") or p.get("To", "")),
+               "status": p.get("Status") or p.get("CallStatus"), "duration": p.get("DialCallDuration") or p.get("Duration"),
+               "digits": strip_digits(p.get("digits") or p.get("Digits") or "") or None, "code": code, "ms": round(ms), "note": note or None}
+        pipe = cache.redis.pipeline()
+        pipe.lpush("exo:trace", json.dumps({k: v for k, v in row.items() if v not in (None, "")}))
+        pipe.ltrim("exo:trace", 0, 299)
+        pipe.expire("exo:trace", 86400)
+        await pipe.execute()
+    except Exception:
+        log.debug("trace write failed", exc_info=True)
+
+
+async def _identify(request: Request, sid: str, p: dict) -> tuple[str, dict | None, str]:
+    """The farmer for this call: the number we saved when WE placed the call (callmap), else, when Exotel started the call
+    itself or the map is gone, the number Exotel reports (CallFrom/From/CallTo/To, normalised), if that is a registered farmer
+    we are allowed to call. Returns (phone, job, how)."""
+    try:
+        phone, job = await _callmap(sid)
+        return phone, job, "callmap"
+    except HTTPException:
+        pass
+    exophone = normalize_e164(settings.exophone)
+    for key in ("CallFrom", "From", "CallTo", "To"):
+        cand = normalize_e164(p.get(key, ""))
+        if not cand or cand == exophone or (settings.team_phones and cand[-10:] not in settings.team_phones):
+            continue
+        if await request.app.state.deps.get_farmer(cand):
+            await cache.redis.set(f"callmap:exotel:{sid}", cand, ex=CALLMAP_TTL)
+            log.warning("call %s was not started by us: farmer taken from %s", sid[-6:], key)
+            return cand, None, "fallback:" + key
+    raise HTTPException(403, detail={"error": "UNKNOWN_CALL"})
 
 
 async def _callmap(sid: str) -> tuple[str, dict | None]:
@@ -143,8 +195,9 @@ async def place_call(phone: str, job: dict) -> bool:
 async def missed(secret: str, request: Request):
     _check(secret)
     p = await _params(request)
-    phone = normalise(p.get("From") or p.get("CallFrom") or "")
+    phone = normalize_e164(p.get("From") or p.get("CallFrom") or "") or None
     sid = p.get("CallSid") or ""
+    await _trace("missed", p, 200, 0, "" if phone else "unreadable number")
     try:
         if phone and sid:
             await _handle_missed(request.app.state.deps, phone, sid)
@@ -169,8 +222,14 @@ async def _handle_missed(deps, phone: str, sid: str) -> None:
 async def gather(secret: str, request: Request):
     _check(secret)
     p = await _params(request)
+    t0 = time.time()
     sid, step = p.get("CallSid", ""), int(p.get("step") or 1)
-    phone, job = await _callmap(sid)
+    try:
+        phone, job, how = await _identify(request, sid, p)
+    except HTTPException:
+        await _trace("gather", p, 403, (time.time() - t0) * 1000, "unknown call")
+        raise
+    note = "" if how == "callmap" else how
     try:
         if step == 1 and not await cache.redis.set(f"exo:started:{sid}", "1", nx=True, ex=STATE_TTL):
             a = await _recall(sid)                                             # Exotel retried the first Gather
@@ -183,8 +242,13 @@ async def gather(secret: str, request: Request):
             s = await store.load(phone)
             a = flows.build(s["state"], s) if s and s["state"] in flows.SPEC else Action(clips=["bye"], hangup=True)
     except Exception:
-        log.exception("gather failed")
+        log.exception("gather failed")                       # full traceback; the call gets a polite goodbye, never a 500
         a = Action(clips=["bye"], hangup=True)
+        note = "EXCEPTION"
+    ms = (time.time() - t0) * 1000
+    if ms > 2000:
+        log.warning("slow /gather: %.0f ms (Exotel gives up after 5 s)", ms)
+    await _trace("gather", p, 200, ms, f"{note} state={a.state} hangup={a.hangup}".strip())
     return _gather_json(a)
 
 
@@ -208,12 +272,19 @@ async def _start(deps, phone: str, sid: str, job: dict | None) -> Action:
 async def digits(secret: str, request: Request):
     _check(secret)
     p = await _params(request)
+    t0 = time.time()
     sid, step = p.get("CallSid", ""), int(p.get("step") or 1)
-    phone, _ = await _callmap(sid)
+    try:
+        phone, _, how = await _identify(request, sid, p)
+    except HTTPException:
+        await _trace("digits", p, 403, (time.time() - t0) * 1000, "unknown call")
+        raise
     seen = await cache.redis.get(f"exo:resp:{sid}:{step}")                    # a retried Passthru gets the same answer
     if seen:
+        await _trace("digits", p, int(seen), (time.time() - t0) * 1000, "retry")
         return _passthru(int(seen))
     if await cache.redis.exists(f"exo:busy:{sid}"):
+        await _trace("digits", p, 404, (time.time() - t0) * 1000, "farmer busy on another call")
         return _passthru(404)
     d = strip_digits(p.get("digits") or p.get("Digits") or "")             # the parameter name is not documented consistently
     try:
@@ -222,11 +293,13 @@ async def digits(secret: str, request: Request):
                                 provider="exotel"))
     except Exception:
         log.exception("digits failed")
+        await _trace("digits", p, 404, (time.time() - t0) * 1000, "EXCEPTION")
         return _passthru(404)
     code = 404 if a.hangup_now else 200
     if code == 200:
         await _remember(sid, a)
     await cache.redis.set(f"exo:resp:{sid}:{step}", str(code), ex=STATE_TTL)
+    await _trace("digits", p, code, (time.time() - t0) * 1000, ("" if how == "callmap" else how + " ") + f"-> state={a.state}")
     return _passthru(code)
 
 
@@ -241,7 +314,12 @@ async def status(secret: str, request: Request):
     _check(secret)
     p = await _params(request)
     sid = p.get("CallSid", "")
-    phone, job = await _callmap(sid)
+    try:
+        phone, job = await _callmap(sid)
+    except HTTPException:
+        await _trace("status", p, 403, 0, "unknown call")
+        raise
+    await _trace("status", p, 200)
     state = (p.get("Status") or p.get("CallStatus") or "").lower()
     try:
         await guard.release_lock(phone, sid)

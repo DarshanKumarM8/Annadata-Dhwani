@@ -17,6 +17,9 @@ from .flows import GUARD_FACTOR, RESUMABLE, TERMINAL
 
 log = logging.getLogger("engine")
 MAX_RETRIES = 2
+REPEAT_KEY = "8"
+# QTY is not here on purpose: a lone 8 is a valid quantity there. At PRICE a lone 8 can never be a price (minimum is in the thousands).
+REPEATABLE = {"QTY_CONFIRM", "PRICE", "GUARD", "FINAL"}
 FAIL_TICKET_THRESHOLD = 3
 
 
@@ -121,9 +124,9 @@ async def _apply(deps, s: dict, digits: str) -> Action | None:
     one = digits if len(digits) == 1 else ""
 
     if st == "LANG":
-        if one not in ("1", "2"):
+        if one not in ("1", "2", "3"):
             return None
-        s["lang"] = "kn" if one == "1" else "hi"
+        s["lang"] = {"1": "kn", "2": "hi", "3": "en"}[one]
         await deps.set_lang(s["farmer_id"], s["lang"])
         return await (_enter(deps, s, "CONSENT") if not d.get("consented") else _home(deps, s))
 
@@ -190,7 +193,7 @@ async def _apply(deps, s: dict, digits: str) -> Action | None:
         d["guardrail"] = "NONE"
         return await _enter(deps, s, "FINAL")
 
-    if st == "GUARD":
+    if st == "GUARD":                # contract C8, and what the reviewed Kannada/Hindi prompts say: 1 raise, 2 keep, 3 retype
         if one == "1":
             d["price"], d["guardrail"] = int(d["floor"]["afpp"]), "RAISED"
             return await _enter(deps, s, "FINAL")
@@ -253,6 +256,8 @@ async def handle_event(deps, s: dict | None, ev: Event) -> tuple[Action, dict | 
 
     if ev.kind == "timeout" or not ev.digits:
         return await _retry(deps, s, invalid=False), s
+    if ev.digits == REPEAT_KEY and s["state"] in REPEATABLE:        # "press 8 to repeat": replay, no retry used
+        return flows.build(s["state"], s), s
     action = await _apply(deps, s, ev.digits)
     if action is None:
         return await _retry(deps, s, invalid=True), s

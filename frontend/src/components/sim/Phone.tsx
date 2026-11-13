@@ -24,6 +24,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Keypad } from "./Keypad";
 import { playDtmf } from "./dtmf";
+import { API_BASE, WS_BASE } from "../../lib/api";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,9 +58,6 @@ interface PhoneProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8001";
-const WS_BASE = import.meta.env.VITE_WS_BASE ?? "ws://localhost:8001";
-
 function timestamp(): string {
   return new Date().toLocaleTimeString("en-GB", { hour12: false });
 }
@@ -84,10 +82,18 @@ export const Phone: React.FC<PhoneProps> = ({
   const [ivrState, setIvrState] = useState<string>("");
   const [log, setLog] = useState<LogEntry[]>([]);
   const [callSeconds, setCallSeconds] = useState(0);
+  const [connectionState, setConnectionState] = useState<"connecting" | "connected" | "disconnected">("connecting");
+  const [pendingMissedCall, setPendingMissedCall] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const seqRef = useRef<number>(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const currentPlayRef = useRef<PlayMsg | null>(null);
+  const pendingMissedCallRef = useRef(false);
+  const missedCallRequestedRef = useRef(false);
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -131,7 +137,14 @@ export const Phone: React.FC<PhoneProps> = ({
     wsRef.current = ws;
 
     ws.onopen = () => {
+      if (wsRef.current === ws) setConnectionState("connected");
       addLog("info", "WebSocket connected");
+      if (pendingMissedCallRef.current) {
+        pendingMissedCallRef.current = false;
+        const message = { t: "missed_call" };
+        addLog("sent", message);
+        ws.send(JSON.stringify(message));
+      }
     };
 
     ws.onmessage = (ev) => {
@@ -147,10 +160,18 @@ export const Phone: React.FC<PhoneProps> = ({
     };
 
     ws.onclose = (ev) => {
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+        pendingMissedCallRef.current = false;
+        missedCallRequestedRef.current = false;
+        setPendingMissedCall(false);
+        setConnectionState("disconnected");
+      }
       addLog("info", `WebSocket closed (code ${ev.code})`);
     };
 
     ws.onerror = () => {
+      if (wsRef.current === ws) setConnectionState("disconnected");
       addLog("info", "WebSocket error");
     };
   }, [phone, addLog]); // eslint-disable-line
@@ -159,6 +180,8 @@ export const Phone: React.FC<PhoneProps> = ({
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       addLog("sent", msg);
       wsRef.current.send(JSON.stringify(msg));
+    } else {
+      addLog("info", "Message not sent: WebSocket is not connected");
     }
   }, [addLog]);
 
@@ -166,9 +189,11 @@ export const Phone: React.FC<PhoneProps> = ({
   // Audio playback
   // ---------------------------------------------------------------------------
   const stopAudio = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
+    if (audioSourceRef.current) {
+      audioSourceRef.current.onended = null;
+      audioSourceRef.current.stop();
+      audioSourceRef.current.disconnect();
+      audioSourceRef.current = null;
     }
     if (timeoutTimerRef.current) {
       clearTimeout(timeoutTimerRef.current);
@@ -176,33 +201,61 @@ export const Phone: React.FC<PhoneProps> = ({
     }
   }, []);
 
-  const playAudio = useCallback(
-    (msg: PlayMsg) => {
+  const playAudio = useCallback((msg: PlayMsg) => {
       stopAudio();
+      currentPlayRef.current = msg;
       setIvrState(msg.state);
 
-      const audio = new Audio(`${API_BASE}${msg.audio_url}`);
-      audioRef.current = audio;
+      const context = audioContextRef.current;
+      if (!context || context.state !== "running") {
+        setAudioError("Sound is locked by the browser. Enable sound, then replay this prompt.");
+        return;
+      }
 
-      audio.onended = () => {
-        // Start timeout timer after audio ends
-        const seq = ++seqRef.current;
-        timeoutTimerRef.current = setTimeout(() => {
-          addLog("info", `Timeout fired (state=${msg.state}, seq=${seq})`);
-          sendWs({ t: "timeout", call_id: msg.call_id, seq });
-        }, msg.timeout_s * 1000);
-      };
+      void (async () => {
+        try {
+          const response = await fetch(new URL(msg.audio_url, API_BASE));
+          if (!response.ok) throw new Error(`Audio request failed (${response.status}).`);
+          const buffer = await context.decodeAudioData(await response.arrayBuffer());
+          if (currentPlayRef.current !== msg || context.state !== "running") return;
 
-      audio.play().catch(() => {
-        // Autoplay blocked — still set up timeout
-        const seq = ++seqRef.current;
-        timeoutTimerRef.current = setTimeout(() => {
-          sendWs({ t: "timeout", call_id: msg.call_id, seq });
-        }, msg.timeout_s * 1000);
-      });
-    },
-    [stopAudio, sendWs, addLog]
-  );
+          const source = context.createBufferSource();
+          source.buffer = buffer;
+          source.connect(context.destination);
+          audioSourceRef.current = source;
+          source.onended = () => {
+            if (audioSourceRef.current === source) audioSourceRef.current = null;
+            if (msg.timeout_s <= 0 || msg.max_digits <= 0) return;
+            const seq = ++seqRef.current;
+            timeoutTimerRef.current = setTimeout(() => {
+              addLog("info", `Timeout fired (state=${msg.state}, seq=${seq})`);
+              sendWs({ t: "timeout", call_id: msg.call_id, seq });
+            }, msg.timeout_s * 1000);
+          };
+          setAudioError(null);
+          source.start();
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : "Unknown audio playback error.";
+          setAudioError(reason);
+          addLog("info", `Audio playback failed: ${reason}`);
+        }
+      })();
+    }, [stopAudio, sendWs, addLog]);
+
+  const enableSound = useCallback(async () => {
+    try {
+      const context = audioContextRef.current ?? new AudioContext();
+      audioContextRef.current = context;
+      await context.resume();
+      if (context.state !== "running") throw new Error("The browser did not enable audio playback.");
+      setSoundEnabled(true);
+      setAudioError(null);
+      if (currentPlayRef.current) playAudio(currentPlayRef.current);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Audio could not be enabled.";
+      setAudioError(reason);
+    }
+  }, [playAudio]);
 
   /**
    * WebSocket protocol — Contract C6 + server extensions:
@@ -222,6 +275,9 @@ export const Phone: React.FC<PhoneProps> = ({
       const t = msg.t as string;
 
       if (t === "ring") {
+        missedCallRequestedRef.current = false;
+        pendingMissedCallRef.current = false;
+        setPendingMissedCall(false);
         setPhoneState("ringing");
         setCallId(msg.call_id as string);
 
@@ -231,6 +287,8 @@ export const Phone: React.FC<PhoneProps> = ({
 
       } else if (t === "hangup") {
         stopAudio();
+        currentPlayRef.current = null;
+        setAudioError(null);
         setPhoneState("idle");
         setCallId(null);
         setIvrState("");
@@ -266,11 +324,16 @@ export const Phone: React.FC<PhoneProps> = ({
   // User actions
   // ---------------------------------------------------------------------------
   const handleMissedCall = useCallback(() => {
-    connectWs();
-    // Give socket a tick to open, then send
-    setTimeout(() => {
+    if (missedCallRequestedRef.current) return;
+    missedCallRequestedRef.current = true;
+    setPendingMissedCall(true);
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       sendWs({ t: "missed_call" });
-    }, 150);
+      return;
+    }
+    pendingMissedCallRef.current = true;
+    setConnectionState("connecting");
+    connectWs();
   }, [connectWs, sendWs]);
 
   const handleAnswer = useCallback(() => {
@@ -283,6 +346,7 @@ export const Phone: React.FC<PhoneProps> = ({
   const handleHangup = useCallback(() => {
     if (!callId) return;
     stopAudio();
+    currentPlayRef.current = null;
     sendWs({ t: "hangup", call_id: callId });
     setPhoneState("idle");
     setCallId(null);
@@ -296,6 +360,7 @@ export const Phone: React.FC<PhoneProps> = ({
    */
   const handleDropCall = useCallback(() => {
     stopAudio();
+    currentPlayRef.current = null;
     addLog("info", "🔴 DROP CALL — closing socket without hangup");
     if (wsRef.current) {
       wsRef.current.close();
@@ -357,6 +422,8 @@ export const Phone: React.FC<PhoneProps> = ({
   const handleRed = useCallback(() => {
     if (phoneState === "in_call") handleHangup();
     else if (phoneState === "ringing") {
+      missedCallRequestedRef.current = false;
+      setPendingMissedCall(false);
       setPhoneState("idle");
       setCallId(null);
     }
@@ -371,6 +438,9 @@ export const Phone: React.FC<PhoneProps> = ({
       stopCallTimer();
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       wsRef.current?.close();
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        void audioContextRef.current.close();
+      }
     };
   }, []); // eslint-disable-line
 
@@ -416,6 +486,9 @@ export const Phone: React.FC<PhoneProps> = ({
 
       {/* Screen */}
       <div className="bg-black px-4 py-3 min-h-[72px] flex flex-col justify-center">
+        <p className={`mb-1 text-[10px] ${connectionState === "connected" ? "text-emerald-400" : "text-amber-400"}`}>
+          {connectionState === "connected" ? "Connected" : connectionState === "connecting" ? "Connecting to simulator…" : "Disconnected — click the call button to reconnect"}
+        </p>
         <p className={`text-sm font-mono font-semibold ${statusColor}`}>{statusText}</p>
         {callTimerText && (
           <p className="text-xs text-gray-500 font-mono mt-1">{callTimerText}</p>
@@ -424,8 +497,9 @@ export const Phone: React.FC<PhoneProps> = ({
           <button
             className="mt-2 w-full py-2 text-sm bg-green-700 hover:bg-green-600 text-white rounded-lg transition-colors"
             onClick={handleMissedCall}
+            disabled={pendingMissedCall}
           >
-            📲 Give Missed Call
+            {pendingMissedCall ? "Calling…" : "📲 Give Missed Call"}
           </button>
         )}
         {phoneState === "ringing" && (
@@ -434,6 +508,29 @@ export const Phone: React.FC<PhoneProps> = ({
             onClick={handleAnswer}
           >
             ✅ Answer
+          </button>
+        )}
+      </div>
+
+      <div className="border-t border-gray-800 bg-gray-900 px-4 py-2">
+        <button
+          type="button"
+          onClick={() => void enableSound()}
+          className="w-full rounded-lg border border-cyan-700 bg-cyan-950/50 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/60"
+        >
+          {soundEnabled ? "Sound enabled — replay prompt" : "Enable sound"}
+        </button>
+        {audioError && <p className="mt-2 text-xs text-rose-300" role="alert">{audioError}</p>}
+        {soundEnabled && currentPlayRef.current && (
+          <button
+            type="button"
+            onClick={() => {
+              const prompt = currentPlayRef.current;
+              if (prompt) playAudio(prompt);
+            }}
+            className="mt-2 w-full rounded-lg border border-gray-700 py-1.5 text-xs text-gray-200 hover:bg-gray-800"
+          >
+            Replay {currentPlayRef.current.state} prompt
           </button>
         )}
       </div>

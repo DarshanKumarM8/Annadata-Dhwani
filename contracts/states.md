@@ -5,7 +5,7 @@ Terminal states: `DONE`, `DONE_OFFER`, `HELP`, `BYE`, `NOT_REGISTERED` (Action h
 
 | State | Collect | Keys → next | Timeout |
 |---|---|---|---|
-| `LANG` (first call only) | 1 digit | 1 → kn, 2 → hi → `CONSENT` | 6 s |
+| `LANG` (first call only) | 1 digit | 1 → kn, 2 → hi, 3 → en → `CONSENT` (needs `db/003_add_english_language.sql` on old databases) | 6 s |
 | `CONSENT` (first call only) | 1 digit | 1 → `MAIN`/`CROP`; 2 → `BYE` | 8 s |
 | `MAIN` (has a live listing) | 1 digit | 1 → `CROP`; 0 → `HELP` | 6 s |
 | `CROP` | 1 digit | 1–3 → `QTY`; 0 → `HELP`; crop already live → `already_listed` → `MAIN` | 6 s |
@@ -18,6 +18,7 @@ Terminal states: `DONE`, `DONE_OFFER`, `HELP`, `BYE`, `NOT_REGISTERED` (Action h
 | `OFFER_CONFIRM` | 1 digit | 1 → accept → `DONE_OFFER`; 2 → `OFFER` | 8 s |
 | `NOT_REGISTERED` | none | ticket opened, hang up | — |
 
-Rules: invalid key or timeout replays the prompt at most 2 times; the 3rd failure → `BYE` and `fail:{phone}`+1;
+Rules: key `8` repeats the prompt in `QTY_CONFIRM`, `PRICE`, `GUARD` and `FINAL` without using a retry (the recorded prompts say "press 8 to repeat"; not in `QTY`, where a lone 8 is a valid quantity);
+invalid key or timeout replays the prompt at most 2 times; the 3rd failure → `BYE` and `fail:{phone}`+1;
 3 failed calls in 24 h → triage ticket. Total call cap 240 s. A session resumes within 30 min of the last event.
 Debounce (simulator only): same digit within 120 ms dropped; any digit within 40 ms dropped.

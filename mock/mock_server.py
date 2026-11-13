@@ -15,15 +15,22 @@ import copy
 import json
 import os
 import random
+import sys
 import time
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import uvicorn
 from fastapi import FastAPI, File, Form, Header, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-ROOT = Path(__file__).resolve().parents[1]
+from backend.app.engine.flows import GUARD_FACTOR, build as build_prompt
+from backend.app.services.audio import mix as mix_audio
+
 FIX = ROOT / "contracts" / "fixtures"
 PORT = int(os.environ.get("MOCK_PORT", "8001"))
 STORY_INTERVAL_S = float(os.environ.get("MOCK_STORY_INTERVAL", "5"))
@@ -284,7 +291,11 @@ async def health():
 # ---------------- static ----------------
 @app.get("/audio/mix/{name}")
 async def audio(name: str):
-    return FileResponse(FIX / "sample.wav", media_type="audio/wav")
+    audio_root = (ROOT / "audio" / "mix").resolve()
+    audio_file = (audio_root / name).resolve()
+    if audio_file.parent != audio_root or not audio_file.is_file():
+        return err(404, "AUDIO_NOT_FOUND")
+    return FileResponse(audio_file, media_type="audio/wav")
 
 
 @app.get("/media/v/{name}")
@@ -334,10 +345,12 @@ async def story_loop():
 
 
 # ---------------- C6 simulator phone WebSocket ----------------
-# Scripted call: (state, max_digits, finish_on_key, timeout_s). Any valid input moves to the next state.
+# Script entries are (state, max_digits, finish_on_key, timeout_s).
 SCRIPT = [("LANG", 1, "", 6), ("CONSENT", 1, "", 8), ("CROP", 1, "", 6), ("QTY", 2, "#", 8),
           ("QTY_CONFIRM", 1, "", 6), ("PRICE", 5, "#", 10), ("GUARD", 1, "", 8), ("FINAL", 1, "", 8),
-          ("DONE", 0, "", 0)]
+          ("DONE", 0, "", 0), ("BYE", 0, "", 0)]
+LANGUAGE_BY_KEY = {"1": "kn", "2": "hi", "3": "en"}
+MAX_LISTING_QTL = 50
 SIM_CALLS: dict[str, dict] = {}   # call_id -> call
 SIM_DTMF: list[dict] = []
 _call_no = 0
@@ -352,21 +365,105 @@ async def sim_ws(websocket: WebSocket, phone: str = "+919800000001"):
     async def play(c):
         state, maxd, fin, to = SCRIPT[c["step"]]
         c["state"], c["buf"] = state, ""
+        prefix = ["bad_input"] if c.pop("bad_input", False) else None
+        prompt = build_prompt(state, {"data": c["data"], "lang": c["lang"]}, prefix)
+        audio_name = mix_audio(prompt.clips, prompt.lang)
         c["version"] += 1
-        await websocket.send_json({"t": "play", "call_id": c["id"], "audio_url": f"/audio/mix/{state.lower()}.wav",
+        await websocket.send_json({"t": "play", "call_id": c["id"], "audio_url": f"/audio/mix/{audio_name}.wav",
                                    "max_digits": maxd, "finish_on_key": fin, "timeout_s": to, "state": state})
-        if state == "DONE":
+        if prompt.hangup:
             await asyncio.sleep(1.5)
             await websocket.send_json({"t": "hangup", "call_id": c["id"]})
             SIM_CALLS.pop(c["id"], None)
 
     async def submit(c, digits: str):
-        state = SCRIPT[c["step"]][0]
+        step = c["step"]
+        state = SCRIPT[step][0]
+        next_step = step
+        data = c["data"]
+        valid = True
+
+        if state == "LANG":
+            language = LANGUAGE_BY_KEY.get(digits)
+            if language:
+                c["lang"] = language
+                next_step = 1
+            else:
+                valid = False
+        elif state == "CONSENT":
+            if digits == "1":
+                next_step = 2
+            elif digits == "2":
+                next_step = 9
+            else:
+                valid = False
+        elif state == "CROP":
+            crops = {"1": "ragi", "2": "paddy_common", "3": "maize"}
+            crop = crops.get(digits)
+            if crop:
+                data["crop"] = crop
+                data["crop_info"] = {"code": crop, "max_listing_qtl": MAX_LISTING_QTL,
+                                     "min_price": 1000, "max_price": 9000}
+                next_step = 3
+            else:
+                valid = False
+        elif state == "QTY":
+            if digits.isdigit() and 1 <= int(digits) <= min(
+                int(data["crop_info"]["max_listing_qtl"]), MAX_LISTING_QTL
+            ):
+                data["qty"] = int(digits)
+                next_step = 4
+            else:
+                valid = False
+        elif state == "QTY_CONFIRM":
+            if digits == "1":
+                next_step = 5
+            elif digits == "2":
+                data.pop("qty", None)
+                next_step = 3
+            else:
+                valid = False
+        elif state == "PRICE":
+            if digits.isdigit() and 1000 <= int(digits) <= 9000:
+                data["price"] = int(digits)
+                if data["price"] < data["floor"]["afpp"] * GUARD_FACTOR:
+                    next_step = 6
+                else:
+                    data["guardrail"] = "NONE"
+                    next_step = 7
+            else:
+                valid = False
+        elif state == "GUARD":
+            if digits in ("1", "2", "3"):       # same as the engine and the reviewed prompts: 1 raise, 2 keep, 3 retype
+                if digits == "3":
+                    next_step = 5
+                else:
+                    if digits == "2":
+                        data["guardrail"] = "KEPT_BELOW"
+                    else:
+                        data["price"] = int(data["floor"]["afpp"])
+                        data["guardrail"] = "RAISED"
+                    next_step = 7
+            else:
+                valid = False
+        elif state == "FINAL":
+            if digits == "1":
+                data["code"] = 4321
+                next_step = 8
+            elif digits == "2":
+                for key in ("crop", "crop_info", "qty", "price"):
+                    data.pop(key, None)
+                next_step = 2
+            else:
+                valid = False
+
         SIM_DTMF.append({"session_id": c["id"], "state_before": state, "digits": digits,
-                         "state_after": SCRIPT[c["step"] + 1][0], "dropped_reason": None,
+                         "state_after": SCRIPT[next_step][0],
+                         "dropped_reason": None if valid else "OUT_OF_RANGE",
                          "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
         del SIM_DTMF[:-200]
-        c["step"] += 1
+        c["step"] = next_step
+        c["bad_input"] = not valid
         await play(c)
 
     try:
@@ -376,7 +473,10 @@ async def sim_ws(websocket: WebSocket, phone: str = "+919800000001"):
             if t == "missed_call" and call is None:
                 _call_no += 1
                 call = {"id": f"sim-{_call_no}", "phone": phone, "step": 0, "state": "RINGING", "buf": "",
-                        "version": 0, "last": None}
+                        "version": 0, "last": None, "lang": "kn",
+                        "data": {"menu": ["ragi", "paddy_common", "maize"],
+                                 "floor": {"modal_price": 3565, "afpp": 3430},
+                                 "code": 4321}}
                 SIM_CALLS[call["id"]] = call
                 await asyncio.sleep(random.uniform(1, 3))
                 await websocket.send_json({"t": "ring", "call_id": call["id"]})
@@ -397,6 +497,8 @@ async def sim_ws(websocket: WebSocket, phone: str = "+919800000001"):
                 if fin and d == fin:
                     if call["buf"]:
                         await submit(call, call["buf"])
+                    continue
+                if not d.isdigit():
                     continue
                 call["buf"] += d
                 if len(call["buf"]) >= maxd:

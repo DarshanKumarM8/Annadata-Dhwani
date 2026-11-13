@@ -63,7 +63,13 @@ REPO_ROOT = SCRIPT_DIR.parents[1]
 PROMPTS_YAML = REPO_ROOT / "backend" / "prompts.yaml"
 AUDIO_ROOT = REPO_ROOT / "audio"
 
-EDGE_RATE = "-5%"
+EDGE_RATE = "-10%"
+
+VOICE_MAP = {
+    "kn": "kn-IN-SapnaNeural",
+    "hi": "hi-IN-SwaraNeural",
+    "en": "en-IN-NeerjaNeural",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -148,7 +154,7 @@ def ffmpeg_convert(mp3_path: Path, wav_out: Path) -> None:
     cmd = [
         "ffmpeg", "-y",
         "-i", str(mp3_path),
-        "-af", "highpass=f=300,lowpass=f=3400,loudnorm=I=-16:TP=-3:LRA=7",
+        "-af", "highpass=f=180,loudnorm=I=-13:TP=-1.5:LRA=6",
         "-ar", "8000",
         "-ac", "1",
         "-c:a", "pcm_s16le",
@@ -336,6 +342,11 @@ Examples:
         help="Print all available edge-tts voices and exit.",
     )
     parser.add_argument(
+        "--engine",
+        default="edge",
+        help="TTS engine (default: edge).",
+    )
+    parser.add_argument(
         "--text-fallback",
         metavar="LANG",
         default=None,
@@ -353,14 +364,7 @@ Examples:
         await list_voices()
         return
 
-    # All other modes require --langs
-    if not args.langs:
-        parser.error(
-            "--langs is required. "
-            "Example: --langs kn,hi"
-        )
-
-    langs = parse_langs(args.langs)
+    langs = parse_langs(args.langs) if args.langs else list(VOICE_MAP.keys())
 
     # --check does not need --voices
     if args.check:
@@ -372,15 +376,11 @@ Examples:
         check_all(clips, langs)
         return
 
-    # Generation mode: --voices is required
-    if not args.voices:
-        parser.error(
-            "--voices is required for generation. "
-            "Example: --voices kn:kn-IN-SapnaNeural,hi:hi-IN-SwaraNeural\n"
-            "Run --list-voices to see all available edge-tts voices."
-        )
-
-    voice_map = parse_voices(args.voices)
+    # Generation mode: default to VOICE_MAP if --voices not given
+    if args.voices:
+        voice_map = parse_voices(args.voices)
+    else:
+        voice_map = {l: VOICE_MAP[l] for l in langs if l in VOICE_MAP}
 
     # Validate every requested lang has a voice
     missing_voices = [l for l in langs if l not in voice_map]

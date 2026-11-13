@@ -124,7 +124,7 @@ class TestDigitClips:
 
 
 # ---------------------------------------------------------------------------
-# 2. mix duration = sum of clips + 150 ms * gaps
+# 2. mix duration = sum of clips + 280 ms * gaps
 # ---------------------------------------------------------------------------
 class TestMixDuration:
     def test_two_clips(self, tmp_path, monkeypatch):
@@ -134,7 +134,7 @@ class TestMixDuration:
 
         sha = mix(["clip_a", "clip_b"], "kn")
         actual = _wav_duration_ms(tmp_path / "mix" / f"{sha}.wav")
-        assert abs(actual - (300 + 500 + 150)) < 5  # one gap
+        assert abs(actual - (300 + 500 + 280)) < 5  # one gap
 
     def test_three_clips(self, tmp_path, monkeypatch):
         _patch_audio_root(tmp_path, monkeypatch)
@@ -143,7 +143,7 @@ class TestMixDuration:
 
         sha = mix(["a", "b", "c"], "kn")
         actual = _wav_duration_ms(tmp_path / "mix" / f"{sha}.wav")
-        assert abs(actual - (200 + 400 + 300 + 150 * 2)) < 5  # two gaps
+        assert abs(actual - (200 + 400 + 300 + 280 * 2)) < 5  # two gaps
 
     def test_single_clip_no_gap(self, tmp_path, monkeypatch):
         _patch_audio_root(tmp_path, monkeypatch)
@@ -209,7 +209,17 @@ class TestLangOverridePrefix:
         # Play welcome in hi, but lang_option forced to kn
         sha = mix(["welcome", "kn:lang_option"], "hi")
         actual = _wav_duration_ms(tmp_path / "mix" / f"{sha}.wav")
-        assert abs(actual - (200 + 600 + 150)) < 5
+        assert abs(actual - (200 + 600 + 280)) < 5
+
+    def test_override_en_prefix_accepted(self, tmp_path, monkeypatch):
+        """'en:lang_option' override must pick audio/en/lang_option.wav."""
+        _patch_audio_root(tmp_path, monkeypatch)
+        _make_wav(tmp_path / "en" / "lang_option.wav", 450)
+        _make_wav(tmp_path / "kn" / "welcome.wav", 200)
+
+        sha = mix(["welcome", "en:lang_option"], "kn")
+        actual = _wav_duration_ms(tmp_path / "mix" / f"{sha}.wav")
+        assert abs(actual - (200 + 450 + 280)) < 5
 
     def test_override_different_from_default(self, tmp_path, monkeypatch):
         """The override SHA must differ from the non-override SHA."""
@@ -303,7 +313,7 @@ class TestConcurrency:
         sha = shas[0]
         out = tmp_path / "mix" / f"{sha}.wav"
         assert out.exists()
-        assert abs(_wav_duration_ms(out) - (200 + 300 + 150)) < 5
+        assert abs(_wav_duration_ms(out) - (200 + 300 + 280)) < 5
 
 
 # ---------------------------------------------------------------------------

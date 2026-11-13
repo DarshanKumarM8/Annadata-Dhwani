@@ -23,7 +23,7 @@ You are fixing your part of **Annadata Dhwani** so it works with the real backen
 ## 2. Tasks
 
 ### T1. Security: remove the hard-coded key (do this first, 10 minutes)
-`fetch_samples.py` (repo root) line 19 has a hard-coded data.gov.in API key. Fix: read it from the environment variable `DATA_GOV_KEY` (the name used in `.env`), delete the literal, and move the file to `backend/scripts/fetch_samples.py`. The old key is in git history, so treat it as exposed: if it is your personal key, generate a new one on data.gov.in and put it only in your local `.env`. Check `git grep -n "579b464d"` returns nothing in the tree (do not paste the key anywhere).
+`fetch_samples.py` (repo root) line 19 has a hard-coded data.gov.in API key. Fix: read it from the environment variable `DATA_GOV_KEY` (the name used in `.env`), delete the literal, and move the file to `backend/scripts/fetch_samples.py`. The old key is in git history, so treat it as exposed: if it is your personal key, generate a new one on data.gov.in and put it only in your local `.env`. Check `git grep -n -i "api_key *= *[\"']"` finds no literal key anywhere in the tree (never paste the key in chat or in a doc).
 
 ### T2. `db/002_reference.sql` must load cleanly, twice, with one command
 Today it fails: it leaves `<HASH_PW>` / `<HASH_PIN>` placeholders, inserts buyers without the required `phone` column, and needs hand-substituted values. Rewrite it so this works against a database that only has `db/001_schema.sql` applied, and works again on a second run with no error:

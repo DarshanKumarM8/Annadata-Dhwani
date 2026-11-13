@@ -85,8 +85,10 @@ async def main(floor: int | None, reset: bool) -> None:
                            VALUES ($1,$2,$3,'+910000000000','APPROVED')
                            ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash""", org, email, pw)
     pin = bcrypt.hashpw(os.getenv("AGENT_PIN", "1234").encode(), bcrypt.gensalt(rounds=10)).decode()
-    await c.execute("""INSERT INTO agents (fpo_id,name,phone,pin_hash) VALUES ($1::uuid,'Kavya','+919800000099',$2)
-                       ON CONFLICT (phone) DO UPDATE SET pin_hash = EXCLUDED.pin_hash""", FPO_ID, pin)
+    # +919800000099 is the original dev agent; ...101 and ...102 are the two demo buttons on the agent screen's login page
+    for name, phone in (("Kavya", "+919800000099"), ("Kavya", "+919800000101"), ("Suresh", "+919800000102")):
+        await c.execute("""INSERT INTO agents (fpo_id,name,phone,pin_hash) VALUES ($1::uuid,$2,$3,$4)
+                           ON CONFLICT (phone) DO UPDATE SET pin_hash = EXCLUDED.pin_hash""", FPO_ID, name, phone, pin)
     if floor:
         afpp = int((floor * 0.98 - 60) // 10 * 10)
         # the database is the source of truth (a Redis flush must not lose the floor); Redis is just the cache

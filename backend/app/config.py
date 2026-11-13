@@ -1,5 +1,6 @@
 """Settings from the environment (and the repo-root .env, if present). Owner: Darshan."""
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,6 +55,8 @@ class Settings:
     exotel_app_id: str = os.getenv("EXOTEL_APP_ID", "")
     exotel_api_host: str = os.getenv("EXOTEL_API_HOST", "api.exotel.com")
     unknown_cb_ttl_s: int = int(os.getenv("UNKNOWN_CB_TTL_S", "60" if os.getenv("DEMO_MODE", "1") == "1" else "86400"))
+    # real numbers the server may dial (last 10 digits of each TEAM_PHONES entry). Empty = no restriction.
+    team_phones: frozenset = frozenset(re.sub(r"\D", "", p)[-10:] for p in re.split(r"[,;\s]+", os.getenv("TEAM_PHONES", "")) if p)
     verify_radius_m: int = int(os.getenv("VERIFY_RADIUS_M", "500"))
 
 

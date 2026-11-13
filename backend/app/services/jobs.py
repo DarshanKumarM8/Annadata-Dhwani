@@ -124,8 +124,16 @@ async def _dispatch(job: dict) -> None:
         await db.pool.execute("UPDATE call_jobs SET status = 'FAILED', last_error = 'BUDGET', updated_at = now() "
                               "WHERE id = $1::uuid", job["id"])
         return
+    provider = base.get_provider(phone)
+    if getattr(provider, "name", "") == "exotel" and settings.team_phones and phone[-10:] not in settings.team_phones:
+        # never dial a stranger or a made-up number from a trial setup: only the numbers listed in TEAM_PHONES
+        await db.pool.execute("UPDATE call_jobs SET status = 'FAILED', last_error = 'NOT_WHITELISTED', updated_at = now() "
+                              "WHERE id = $1::uuid", job["id"])
+        if offer:
+            await cache.redis.decr(budget)
+        return
     try:
-        placed = await base.get_provider(phone).place_call(phone, {"id": job["id"], "kind": job["kind"], "payload": payload})
+        placed = await provider.place_call(phone, {"id": job["id"], "kind": job["kind"], "payload": payload})
     except Exception:
         log.exception("place_call failed")
         placed = False

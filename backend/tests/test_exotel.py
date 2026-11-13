@@ -21,7 +21,7 @@ pytestmark = pytest.mark.skipif(not STACK_UP, reason="docker compose stack (Post
 SECRET = "s3cret-" + "x" * 24
 OVERRIDES = {"webhook_secret": SECRET, "exotel_sid": "annadata1", "exotel_api_key": "key1", "exotel_api_token": "tok1",
              "exophone": "08040000000", "exotel_app_id": "12345", "public_base_url": "https://demo.example",
-             "provider": "exotel"}
+             "provider": "exotel", "team_phones": frozenset()}
 
 
 class FakeExotel:
@@ -280,3 +280,17 @@ async def test_digits_with_terminator_quotes_and_capital_parameter_name_are_unde
     assert (await http.get(url("digits"), params={"CallSid": sid, "step": 3, "digits": '"1#"'})).status_code == 200     # crop
     g = await gather(http, sid, 4)
     assert g["max_input_digits"] == 2                                       # we are at the quantity prompt: all three keys were accepted
+
+
+async def test_numbers_outside_team_phones_are_never_dialed(env):
+    pool, fake, http = env
+    (mine, _), (stranger, _) = await setup_farmers(2)
+    object.__setattr__(settings, "team_phones", frozenset({mine[-10:]}))           # only this number may be called
+    for p in (mine, stranger):
+        await http.post(url("missed"), data={"From": exo_form(p), "CallSid": "W" + p[-4:]})
+    await pool.execute("UPDATE call_jobs SET run_at = now() WHERE phone = ANY($1)", [mine, stranger])
+    await jobs.tick()
+    ok, blocked = await keys(pool, mine), await keys(pool, stranger)
+    assert ok["status"] == "DIALING" and ok["provider_call_id"]                    # the listed number is called
+    assert blocked["status"] == "FAILED" and blocked["last_error"] == "NOT_WHITELISTED" and blocked["attempts"] == 1
+    assert len(fake.requests) == 1                                                  # Exotel was never asked about the other one

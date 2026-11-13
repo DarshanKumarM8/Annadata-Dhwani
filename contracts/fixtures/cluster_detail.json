@@ -1,0 +1,232 @@
+{
+  "00000000-0000-4000-8000-000000000001": {
+    "lots": [
+      {
+        "lot_no": 1,
+        "qty_qtl": 2,
+        "ask_price": 3550
+      },
+      {
+        "lot_no": 2,
+        "qty_qtl": 3,
+        "ask_price": 3575
+      },
+      {
+        "lot_no": 3,
+        "qty_qtl": 3,
+        "ask_price": 3600
+      },
+      {
+        "lot_no": 4,
+        "qty_qtl": 3,
+        "ask_price": 3625
+      },
+      {
+        "lot_no": 5,
+        "qty_qtl": 3,
+        "ask_price": 3650
+      },
+      {
+        "lot_no": 6,
+        "qty_qtl": 3,
+        "ask_price": 3675
+      }
+    ],
+    "price_ref": {
+      "modal_price": 3565,
+      "afpp": 3430,
+      "basis": "DISTRICT_FRESH",
+      "price_date": "2026-11-12"
+    },
+    "msp": 5205
+  },
+  "00000000-0000-4000-8000-000000000002": {
+    "lots": [
+      {
+        "lot_no": 1,
+        "qty_qtl": 3,
+        "ask_price": 2050
+      },
+      {
+        "lot_no": 2,
+        "qty_qtl": 3,
+        "ask_price": 2075
+      },
+      {
+        "lot_no": 3,
+        "qty_qtl": 3,
+        "ask_price": 2100
+      },
+      {
+        "lot_no": 4,
+        "qty_qtl": 3,
+        "ask_price": 2125
+      },
+      {
+        "lot_no": 5,
+        "qty_qtl": 3,
+        "ask_price": 2150
+      },
+      {
+        "lot_no": 6,
+        "qty_qtl": 3,
+        "ask_price": 2175
+      },
+      {
+        "lot_no": 7,
+        "qty_qtl": 3,
+        "ask_price": 2200
+      }
+    ],
+    "price_ref": null,
+    "msp": 2410
+  },
+  "00000000-0000-4000-8000-000000000003": {
+    "lots": [
+      {
+        "lot_no": 1,
+        "qty_qtl": 3,
+        "ask_price": 2150
+      },
+      {
+        "lot_no": 2,
+        "qty_qtl": 4,
+        "ask_price": 2175
+      },
+      {
+        "lot_no": 3,
+        "qty_qtl": 3,
+        "ask_price": 2200
+      },
+      {
+        "lot_no": 4,
+        "qty_qtl": 3,
+        "ask_price": 2225
+      },
+      {
+        "lot_no": 5,
+        "qty_qtl": 3,
+        "ask_price": 2250
+      },
+      {
+        "lot_no": 6,
+        "qty_qtl": 4,
+        "ask_price": 2275
+      },
+      {
+        "lot_no": 7,
+        "qty_qtl": 3,
+        "ask_price": 2300
+      },
+      {
+        "lot_no": 8,
+        "qty_qtl": 3,
+        "ask_price": 2325
+      }
+    ],
+    "price_ref": {
+      "modal_price": 2200,
+      "afpp": 2090,
+      "basis": "STATE_7D",
+      "price_date": "2026-11-11"
+    },
+    "msp": 2441
+  },
+  "00000000-0000-4000-8000-000000000004": {
+    "lots": [
+      {
+        "lot_no": 1,
+        "qty_qtl": 3,
+        "ask_price": 3600
+      },
+      {
+        "lot_no": 2,
+        "qty_qtl": 3,
+        "ask_price": 3625
+      },
+      {
+        "lot_no": 3,
+        "qty_qtl": 3,
+        "ask_price": 3650
+      },
+      {
+        "lot_no": 4,
+        "qty_qtl": 3,
+        "ask_price": 3675
+      },
+      {
+        "lot_no": 5,
+        "qty_qtl": 3,
+        "ask_price": 3700
+      },
+      {
+        "lot_no": 6,
+        "qty_qtl": 3,
+        "ask_price": 3725
+      },
+      {
+        "lot_no": 7,
+        "qty_qtl": 3,
+        "ask_price": 3750
+      },
+      {
+        "lot_no": 8,
+        "qty_qtl": 3,
+        "ask_price": 3775
+      }
+    ],
+    "price_ref": {
+      "modal_price": 3565,
+      "afpp": 3430,
+      "basis": "DISTRICT_FRESH",
+      "price_date": "2026-11-12"
+    },
+    "msp": 5205
+  },
+  "00000000-0000-4000-8000-000000000005": {
+    "lots": [
+      {
+        "lot_no": 1,
+        "qty_qtl": 3,
+        "ask_price": 2000
+      },
+      {
+        "lot_no": 2,
+        "qty_qtl": 3,
+        "ask_price": 2025
+      },
+      {
+        "lot_no": 3,
+        "qty_qtl": 4,
+        "ask_price": 2050
+      },
+      {
+        "lot_no": 4,
+        "qty_qtl": 3,
+        "ask_price": 2075
+      },
+      {
+        "lot_no": 5,
+        "qty_qtl": 3,
+        "ask_price": 2100
+      },
+      {
+        "lot_no": 6,
+        "qty_qtl": 3,
+        "ask_price": 2125
+      },
+      {
+        "lot_no": 7,
+        "qty_qtl": 3,
+        "ask_price": 2150
+      }
+    ],
+    "price_ref": {
+      "modal_price": 2180,
+      "afpp": 2070,
+      "basis": "DISTRICT_7D",
+      "price_date": "2026-11-10"
+    },
+    "msp": 2410
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "events": [
+    {
+      "session_id": "50000000-0000-4000-8000-000000000001",
+      "state_before": "QTY",
+      "digits": "3",
+      "state_after": "QTY_CONFIRM",
+      "dropped_reason": null,
+      "at": "2026-11-13T07:00:41Z"
+    },
+    {
+      "session_id": "50000000-0000-4000-8000-000000000001",
+      "state_before": "QTY",
+      "digits": "3",
+      "state_after": "QTY",
+      "dropped_reason": "BOUNCE",
+      "at": "2026-11-13T07:00:40Z"
+    },
+    {
+      "session_id": "50000000-0000-4000-8000-000000000001",
+      "state_before": "CROP",
+      "digits": "1",
+      "state_after": "QTY",
+      "dropped_reason": null,
+      "at": "2026-11-13T07:00:30Z"
+    },
+    {
+      "session_id": "50000000-0000-4000-8000-000000000002",
+      "state_before": "PRICE",
+      "digits": "38000",
+      "state_after": "PRICE",
+      "dropped_reason": "OUT_OF_RANGE",
+      "at": "2026-11-13T06:59:02Z"
+    }
+  ]
+}

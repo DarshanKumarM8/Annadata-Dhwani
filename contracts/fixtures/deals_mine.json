@@ -1,0 +1,18 @@
+{
+  "deals": [
+    {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "cluster_id": "00000000-0000-4000-8000-000000000005",
+      "qty_qtl": 19,
+      "price_per_qtl": 2150,
+      "gross_value": 40850,
+      "platform_fee": 612.75,
+      "status": "CONFIRMED",
+      "pickup_by": "2026-11-16",
+      "fpo": {
+        "name": "Keregodu Farmer Producer Company",
+        "payee_details": "UPI keregodu-fpo@bank (demo)"
+      }
+    }
+  ]
+}

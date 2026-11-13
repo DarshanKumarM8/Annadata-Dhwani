@@ -1,0 +1,36 @@
+{
+  "bids": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "cluster_id": "00000000-0000-4000-8000-000000000004",
+      "price_per_qtl": 3850,
+      "min_qty_qtl": 15,
+      "status": "CONFIRMING",
+      "progress": {
+        "accepted_qtl": 9,
+        "rejected_qtl": 3,
+        "pending_qtl": 12
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000002",
+      "cluster_id": "00000000-0000-4000-8000-000000000005",
+      "price_per_qtl": 2150,
+      "min_qty_qtl": 15,
+      "status": "DEAL",
+      "progress": {
+        "accepted_qtl": 19,
+        "rejected_qtl": 3,
+        "pending_qtl": 0
+      }
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000003",
+      "cluster_id": "00000000-0000-4000-8000-000000000003",
+      "price_per_qtl": 2240,
+      "min_qty_qtl": 20,
+      "status": "OUTBID",
+      "progress": null
+    }
+  ]
+}

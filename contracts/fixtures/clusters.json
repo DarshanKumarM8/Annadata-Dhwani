@@ -1,0 +1,123 @@
+{
+  "clusters": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "code": 101,
+      "crop_code": "ragi",
+      "crop_name": "Ragi",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Keregodu FPO yard",
+        "lat": 12.63,
+        "lon": 76.92
+      },
+      "status": "OPEN",
+      "total_qtl": 17.0,
+      "listing_count": 6,
+      "min_ask": 3550,
+      "wavg_ask": 3625,
+      "grade": null,
+      "photo_url": null,
+      "bidding_ends_at": null,
+      "best_bid": null,
+      "version": 1
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "code": 102,
+      "crop_code": "maize",
+      "crop_name": "Maize",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Venue demo point",
+        "lat": 12.9716,
+        "lon": 77.5946
+      },
+      "status": "READY",
+      "total_qtl": 21.0,
+      "listing_count": 7,
+      "min_ask": 2050,
+      "wavg_ask": 2120,
+      "grade": null,
+      "photo_url": null,
+      "bidding_ends_at": null,
+      "best_bid": null,
+      "version": 4
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "code": 103,
+      "crop_code": "paddy_common",
+      "crop_name": "Paddy",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Hosahalli point",
+        "lat": 12.58,
+        "lon": 76.88
+      },
+      "status": "BIDDING",
+      "total_qtl": 26.0,
+      "listing_count": 8,
+      "min_ask": 2150,
+      "wavg_ask": 2230,
+      "grade": "B",
+      "photo_url": "/media/v/sample.svg",
+      "bidding_ends_at": "2026-11-13T23:30:00Z",
+      "best_bid": {
+        "price_per_qtl": 2260,
+        "mine": false
+      },
+      "version": 9
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "code": 104,
+      "crop_code": "ragi",
+      "crop_name": "Ragi",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Hosahalli point",
+        "lat": 12.58,
+        "lon": 76.88
+      },
+      "status": "CONFIRMING",
+      "total_qtl": 24.0,
+      "listing_count": 8,
+      "min_ask": 3600,
+      "wavg_ask": 3742,
+      "grade": "A",
+      "photo_url": "/media/v/sample.svg",
+      "bidding_ends_at": "2026-11-13T09:00:00Z",
+      "best_bid": {
+        "price_per_qtl": 3850,
+        "mine": true
+      },
+      "version": 12
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "code": 105,
+      "crop_code": "maize",
+      "crop_name": "Maize",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Keregodu FPO yard",
+        "lat": 12.63,
+        "lon": 76.92
+      },
+      "status": "DEAL",
+      "total_qtl": 22.0,
+      "listing_count": 7,
+      "min_ask": 2000,
+      "wavg_ask": 2080,
+      "grade": "A",
+      "photo_url": "/media/v/sample.svg",
+      "bidding_ends_at": "2026-11-13T07:00:00Z",
+      "best_bid": {
+        "price_per_qtl": 2150,
+        "mine": true
+      },
+      "version": 15
+    }
+  ]
+}

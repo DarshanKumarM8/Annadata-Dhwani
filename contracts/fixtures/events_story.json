@@ -1,0 +1,226 @@
+[
+  {
+    "type": "listing.created",
+    "audience": "all",
+    "payload": {
+      "cluster_id": "00000000-0000-4000-8000-000000000001",
+      "crop_code": "ragi",
+      "qty_qtl": 3,
+      "ask_price": 3430,
+      "source": "IVR"
+    }
+  },
+  {
+    "type": "cluster.updated",
+    "audience": "all",
+    "payload": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "code": 101,
+      "crop_code": "ragi",
+      "crop_name": "Ragi",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Keregodu FPO yard",
+        "lat": 12.63,
+        "lon": 76.92
+      },
+      "status": "READY",
+      "total_qtl": 20.0,
+      "listing_count": 7,
+      "min_ask": 3430,
+      "wavg_ask": 3597,
+      "grade": null,
+      "photo_url": null,
+      "bidding_ends_at": null,
+      "best_bid": null,
+      "version": 2
+    }
+  },
+  {
+    "type": "task.created",
+    "audience": "agent",
+    "payload": {
+      "kind": "VERIFY",
+      "ref_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "type": "cluster.updated",
+    "audience": "all",
+    "payload": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "code": 101,
+      "crop_code": "ragi",
+      "crop_name": "Ragi",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Keregodu FPO yard",
+        "lat": 12.63,
+        "lon": 76.92
+      },
+      "status": "BIDDING",
+      "total_qtl": 20.0,
+      "listing_count": 7,
+      "min_ask": 3430,
+      "wavg_ask": 3597,
+      "grade": "A",
+      "photo_url": "/media/v/sample.svg",
+      "bidding_ends_at": "2026-11-13T23:59:00Z",
+      "best_bid": null,
+      "version": 3
+    }
+  },
+  {
+    "type": "bid.placed",
+    "audience": "buyer",
+    "payload": {
+      "cluster_id": "00000000-0000-4000-8000-000000000001",
+      "bid_id": "10000000-0000-4000-8000-000000000010",
+      "price_per_qtl": 3600,
+      "buyer_is_you": false
+    }
+  },
+  {
+    "type": "cluster.updated",
+    "audience": "all",
+    "payload": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "code": 101,
+      "crop_code": "ragi",
+      "crop_name": "Ragi",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Keregodu FPO yard",
+        "lat": 12.63,
+        "lon": 76.92
+      },
+      "status": "BIDDING",
+      "total_qtl": 20.0,
+      "listing_count": 7,
+      "min_ask": 3430,
+      "wavg_ask": 3597,
+      "grade": "A",
+      "photo_url": "/media/v/sample.svg",
+      "bidding_ends_at": "2026-11-13T23:59:00Z",
+      "best_bid": {
+        "price_per_qtl": 3600,
+        "mine": false
+      },
+      "version": 4
+    }
+  },
+  {
+    "type": "bid.placed",
+    "audience": "buyer",
+    "payload": {
+      "cluster_id": "00000000-0000-4000-8000-000000000001",
+      "bid_id": "10000000-0000-4000-8000-000000000011",
+      "price_per_qtl": 3650,
+      "buyer_is_you": true
+    }
+  },
+  {
+    "type": "cluster.updated",
+    "audience": "all",
+    "payload": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "code": 101,
+      "crop_code": "ragi",
+      "crop_name": "Ragi",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Keregodu FPO yard",
+        "lat": 12.63,
+        "lon": 76.92
+      },
+      "status": "CONFIRMING",
+      "total_qtl": 20.0,
+      "listing_count": 7,
+      "min_ask": 3430,
+      "wavg_ask": 3597,
+      "grade": "A",
+      "photo_url": "/media/v/sample.svg",
+      "bidding_ends_at": "2026-11-13T23:59:00Z",
+      "best_bid": {
+        "price_per_qtl": 3650,
+        "mine": true
+      },
+      "version": 5
+    }
+  },
+  {
+    "type": "bid.confirming",
+    "audience": "buyer",
+    "payload": {
+      "cluster_id": "00000000-0000-4000-8000-000000000001",
+      "bid_id": "10000000-0000-4000-8000-000000000011",
+      "accepted_qtl": 3,
+      "rejected_qtl": 0,
+      "pending_qtl": 17
+    }
+  },
+  {
+    "type": "bid.confirming",
+    "audience": "buyer",
+    "payload": {
+      "cluster_id": "00000000-0000-4000-8000-000000000001",
+      "bid_id": "10000000-0000-4000-8000-000000000011",
+      "accepted_qtl": 9,
+      "rejected_qtl": 3,
+      "pending_qtl": 8
+    }
+  },
+  {
+    "type": "bid.confirming",
+    "audience": "buyer",
+    "payload": {
+      "cluster_id": "00000000-0000-4000-8000-000000000001",
+      "bid_id": "10000000-0000-4000-8000-000000000011",
+      "accepted_qtl": 17,
+      "rejected_qtl": 3,
+      "pending_qtl": 0
+    }
+  },
+  {
+    "type": "deal.created",
+    "audience": "buyer",
+    "payload": {
+      "deal_id": "20000000-0000-4000-8000-000000000010",
+      "cluster_id": "00000000-0000-4000-8000-000000000001",
+      "qty_qtl": 17,
+      "price_per_qtl": 3650,
+      "gross_value": 62050,
+      "platform_fee": 930.75,
+      "pickup_by": "2026-11-16"
+    }
+  },
+  {
+    "type": "cluster.updated",
+    "audience": "all",
+    "payload": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "code": 101,
+      "crop_code": "ragi",
+      "crop_name": "Ragi",
+      "district": "Mandya",
+      "collection_point": {
+        "name": "Keregodu FPO yard",
+        "lat": 12.63,
+        "lon": 76.92
+      },
+      "status": "DEAL",
+      "total_qtl": 20.0,
+      "listing_count": 7,
+      "min_ask": 3430,
+      "wavg_ask": 3597,
+      "grade": "A",
+      "photo_url": "/media/v/sample.svg",
+      "bidding_ends_at": "2026-11-13T23:59:00Z",
+      "best_bid": {
+        "price_per_qtl": 3650,
+        "mine": true
+      },
+      "version": 6
+    }
+  }
+]

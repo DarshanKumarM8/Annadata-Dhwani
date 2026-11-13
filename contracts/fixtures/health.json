@@ -1,0 +1,8 @@
+{
+  "db": "ok",
+  "redis": "ok",
+  "tts_clips": 216,
+  "price_age_days": 0,
+  "provider": "sim",
+  "public_base_url_ok": true
+}

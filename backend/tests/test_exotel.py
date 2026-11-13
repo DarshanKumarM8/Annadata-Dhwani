@@ -294,3 +294,30 @@ async def test_numbers_outside_team_phones_are_never_dialed(env):
     assert ok["status"] == "DIALING" and ok["provider_call_id"]                    # the listed number is called
     assert blocked["status"] == "FAILED" and blocked["last_error"] == "NOT_WHITELISTED" and blocked["attempts"] == 1
     assert len(fake.requests) == 1                                                  # Exotel was never asked about the other one
+
+
+async def test_webhooks_find_the_farmer_by_call_id_not_by_the_caller_number(env):
+    pool, fake, http = env
+    (phone, _), = await setup_farmers(1)
+    sid = (await start_callback(pool, http, phone))["provider_call_id"]
+    # Exotel's own From/To/CallFrom can arrive with a leading 0 or even be some other number: they are never used to find the call
+    r = await http.get(url("gather"), params={"CallSid": sid, "step": 1, "CallFrom": "09845012345", "From": "09845012345",
+                                              "To": "08040000000"})
+    assert r.status_code == 200
+    assert await cache.redis.exists(f"sess:{phone}") and not await cache.redis.exists("sess:+919845012345")
+    assert exotel.normalise("09845012345") == "+919845012345"                      # and the helper turns a leading 0 into E.164
+
+
+async def test_seeded_demo_numbers_are_never_dialed_even_without_a_team_list(env):
+    pool, fake, http = env                                                          # team_phones is empty here: no allow-list
+    sim = "+919800000001"
+    farmer = await pool.fetchrow("SELECT id::text FROM farmers WHERE phone = $1", sim)
+    async with pool.acquire() as conn:
+        await jobs.enqueue_callback(conn, sim, farmer["id"], "SIMX" + uuid.uuid4().hex[:6])
+    await pool.execute("UPDATE call_jobs SET run_at = now() WHERE phone = $1", sim)
+    try:
+        await jobs.tick()
+        j = await keys(pool, sim)
+        assert j["status"] == "FAILED" and j["last_error"] == "SIMULATED_NUMBER" and fake.requests == []
+    finally:
+        await pool.execute("DELETE FROM call_jobs WHERE phone = $1", sim)

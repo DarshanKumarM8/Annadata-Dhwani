@@ -125,6 +125,14 @@ async def _dispatch(job: dict) -> None:
                               "WHERE id = $1::uuid", job["id"])
         return
     provider = base.get_provider(phone)
+    if getattr(provider, "name", "") == "exotel" and phone[-10:].startswith("980000"):
+        # the seeded demo farmers (+91 98000000xx) and agents are made-up numbers that may belong to real people:
+        # the real network never dials them, whatever TEAM_PHONES says
+        await db.pool.execute("UPDATE call_jobs SET status = 'FAILED', last_error = 'SIMULATED_NUMBER', updated_at = now() "
+                              "WHERE id = $1::uuid", job["id"])
+        if offer:
+            await cache.redis.decr(budget)
+        return
     if getattr(provider, "name", "") == "exotel" and settings.team_phones and phone[-10:] not in settings.team_phones:
         # never dial a stranger or a made-up number from a trial setup: only the numbers listed in TEAM_PHONES
         await db.pool.execute("UPDATE call_jobs SET status = 'FAILED', last_error = 'NOT_WHITELISTED', updated_at = now() "

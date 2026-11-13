@@ -171,7 +171,7 @@ def test_rest_login_lockout_auth_and_no_phone_numbers_leak(clean):
         assert client.get("/api/clusters/not-a-uuid", headers=h).json() == {"error": "NOT_FOUND"}
         assert client.get("/api/clusters/" + str(uuid.uuid4()), headers=h).status_code == 404
         blob = json.dumps([lst, d])
-        assert not re.search(r"\d{10}", blob) and farmers[0][0] not in blob      # no phone numbers
+        assert not re.search(r"(?<![\w.])(\+?91)?[6-9]\d{9}(?![\w.])", blob) and farmers[0][0] not in blob      # no phone numbers (not digits inside ids)
         # five wrong passwords lock the account
         for _ in range(5):
             client.post("/api/auth/buyer/login", json={"email": "buyer2@demo.test", "password": "bad"})

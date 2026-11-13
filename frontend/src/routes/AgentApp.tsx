@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-// @ts-ignore - provided by environment helper at src/lib/api
-import apiDefault, { api as apiNamed } from "../lib/api";
-
-const api = apiNamed || apiDefault;
+import { api } from "../lib/api";
 
 // ---------------------------------------------------------------------------
 // Type Definitions
@@ -674,7 +671,7 @@ export default function AgentApp(): React.ReactElement {
             {/* Clusters List Header */}
             <div className="flex items-center justify-between px-1">
               <h2 className="text-sm font-semibold text-slate-300">
-                Ready for Verification ({clusters.filter((c) => c.status === "OPEN").length})
+                Ready for Verification ({clusters.filter((c) => c.status === "READY").length})
               </h2>
               <button
                 onClick={loadClusters}
@@ -706,7 +703,7 @@ export default function AgentApp(): React.ReactElement {
             ) : (
               <div className="space-y-3">
                 {clusters.map((cluster) => {
-                  const isOpen = cluster.status === "OPEN";
+                  const isOpen = cluster.status === "READY";            // READY = waiting for the agent to verify the sample
                   return (
                     <div
                       key={cluster.id}
@@ -774,9 +771,13 @@ export default function AgentApp(): React.ReactElement {
                           </svg>
                           <span>Inspect & Verify Cluster</span>
                         </button>
+                      ) : cluster.status === "OPEN" ? (
+                        <div className="text-center text-xs text-slate-500 font-medium py-1">
+                          Still collecting: {cluster.total_qtl} of 20 qtl needed
+                        </div>
                       ) : (
                         <div className="text-center text-xs text-slate-500 font-medium py-1">
-                          Verified Grade: <span className="text-emerald-400 font-bold">{cluster.grade || "B"}</span>
+                          Verified Grade: <span className="text-emerald-400 font-bold">{cluster.grade || "–"}</span>
                         </div>
                       )}
                     </div>
@@ -1096,7 +1097,7 @@ export default function AgentApp(): React.ReactElement {
         <button
           onClick={() => {
             if (!activeClusterId && clusters.length > 0) {
-              const openCluster = clusters.find((c) => c.status === "OPEN") || clusters[0];
+              const openCluster = clusters.find((c) => c.status === "READY") || clusters[0];
               setActiveClusterId(openCluster.id);
             }
             setActiveTab("inspect");

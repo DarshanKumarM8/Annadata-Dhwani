@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from . import cache, db
 from .config import ROOT, settings
 from .engine.deps import PgDeps
-from .api import agent, auth, buyer, clusters, ops, ws
+from .api import agent, agent_ui, auth, buyer, clusters, ops, ws
 from .services import bidding, jobs, sweeper
 from .telephony import exotel, sim
 
@@ -47,6 +47,7 @@ app.include_router(auth.router)
 app.include_router(clusters.router)
 app.include_router(buyer.router)
 app.include_router(agent.router)
+app.include_router(agent_ui.router)
 app.include_router(ws.router)
 
 

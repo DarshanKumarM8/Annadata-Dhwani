@@ -59,6 +59,8 @@ async def seed(pool) -> None:
                 "id": str(uuid.uuid4()), "phone": phone, "farmer_id": ids[phone], "kind": "LISTING", "provider": "sim",
                 "call_id": "demo-" + uuid.uuid4().hex[:6], "state": "DONE", "version": 1,
                 "data": {"crop": crop, "qty": qty, "price": price}})
+    # the seeded listings have no phone call behind them: do not show them as live sessions on the ops page
+    await pool.execute("UPDATE call_sessions SET ended_at = now(), outcome = 'COMPLETED' WHERE phone = ANY($1) AND ended_at IS NULL", PHONES)
     # paddy: pretend the agent already verified it, so there is a cluster open for bids
     paddy = await pool.fetchval("SELECT id FROM clusters WHERE crop_code = 'paddy_common' AND status = 'READY'")
     async with pool.acquire() as c, c.transaction():

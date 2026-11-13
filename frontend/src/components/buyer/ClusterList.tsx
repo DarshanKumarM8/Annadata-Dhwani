@@ -195,7 +195,7 @@ export const ClusterList: React.FC<ClusterListProps> = ({
                                         ) : (
                                             <span className="text-slate-400 italic">no bids</span>
                                         )}
-                                        {c.bidding_ends_at && (
+                                        {c.bidding_ends_at && c.status === "BIDDING" && (
                                             <span
                                                 className={`block font-mono text-[11px] mt-0.5 ${countdown === "ended"
                                                     ? "text-red-600 font-semibold"

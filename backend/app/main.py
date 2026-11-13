@@ -62,7 +62,7 @@ async def http_error(_: Request, e: HTTPException):
                         status_code=e.status_code)
 
 
-@app.get("/audio/mix/{name}")
+@app.api_route("/audio/mix/{name}", methods=["GET", "HEAD"])   # Exotel sends HEAD before it plays a URL
 async def audio_mix(name: str):
     """Mixed prompt WAVs. Falls back to the sample beep while services/audio.py (H4) is not merged."""
     f = settings.audio_dir / "mix" / name
@@ -77,7 +77,7 @@ async def demo_board():
     return FileResponse(Path(__file__).parent / "static" / "demo.html", media_type="text/html")
 
 
-@app.get("/media/v/{name}")
+@app.api_route("/media/v/{name}", methods=["GET", "HEAD"])
 async def media(name: str):
     f = settings.media_dir / "v" / name
     if f.is_file() and f.resolve().parent == (settings.media_dir / "v").resolve():

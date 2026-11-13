@@ -82,7 +82,7 @@ function render() {
       <input id="q${c.id}" type="number" placeholder="min qtl" value="${Math.min(15, c.total_qtl)}">
       <button data-a="bid1" data-id="${c.id}">Bid as Buyer 1</button><button data-a="bid2" data-id="${c.id}">Bid as Buyer 2</button>
       <button data-a="close" data-id="${c.id}">Close auction</button>`;
-    if (c.status === "CONFIRMING") acts = `<button class="p" data-a="accept" data-id="${c.id}">Farmers accept</button><button data-a="reject" data-id="${c.id}">Farmers reject</button>`;
+    if (c.status === "CONFIRMING") acts = `<span style="color:var(--mute)">Calling each farmer's phone (open /sim to answer)…</span><button data-a="accept" data-id="${c.id}">Skip calls: all accept</button><button data-a="reject" data-id="${c.id}">Skip calls: all reject</button>`;
     if (c.status === "DEAL" && d) {
       acts = d.deal.status === "CONFIRMED" ? `<button data-a="pay" data-id="${c.id}">Buyer reports payment</button>`
         : d.deal.status === "PAYMENT_REPORTED" ? `<button class="p" data-a="confirm" data-id="${c.id}">Agent confirms payment</button>` : `<b style="color:var(--g)">Paid ✔</b>`;

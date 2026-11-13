@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from .. import db
+from ..config import settings
 from . import agent as core
 from .auth import ApiError, require
 
@@ -48,7 +49,8 @@ async def collection_points(who: dict = Depends(require("agent"))):
 
 
 _CLUSTER_COLS = """c.id::text AS id, c.collection_point_id::text AS collection_point_id, cp.name AS collection_point_name,
-                   c.crop_code, c.status, c.total_qtl, c.listing_count, c.min_ask, c.wavg_ask, c.grade, c.version"""
+                   c.crop_code, c.status, c.total_qtl, c.listing_count, c.min_ask, c.wavg_ask, c.grade, c.version,
+                   ST_Y(cp.geog::geometry) AS yard_lat, ST_X(cp.geog::geometry) AS yard_lon"""
 
 
 def _cluster(r) -> dict:
@@ -56,7 +58,8 @@ def _cluster(r) -> dict:
             "collection_point_name": r["collection_point_name"], "crop_code": r["crop_code"], "status": r["status"],
             "total_qtl": float(r["total_qtl"] or 0), "listing_count": int(r["listing_count"] or 0),
             "min_ask": float(r["min_ask"] or 0), "wavg_ask": float(r["wavg_ask"] or 0), "grade": r["grade"],
-            "version": int(r["version"] or 1)}
+            "version": int(r["version"] or 1), "yard_lat": r["yard_lat"], "yard_lon": r["yard_lon"],
+            "verify_radius_m": settings.verify_radius_m}
 
 
 @router.get("/clusters")

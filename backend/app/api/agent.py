@@ -103,7 +103,7 @@ async def verification(cid: str, photo: UploadFile = File(...), grade: str = For
             if c["status"] != "READY":
                 raise ApiError(409, "ALREADY_VERIFIED" if c["status"] != "OPEN" else "NOT_READY")
             if c["dist"] > settings.verify_radius_m:
-                raise ApiError(422, "TOO_FAR", distance_m=round(c["dist"]))
+                raise ApiError(422, "TOO_FAR", distance_m=round(c["dist"]), radius_m=settings.verify_radius_m)
             name = f"{uuid.uuid4().hex}.jpg"
             if grade == "REJECT":
                 status = "OPEN"                           # sample failed: cluster keeps collecting

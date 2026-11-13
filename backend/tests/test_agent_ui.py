@@ -57,6 +57,7 @@ async def test_agent_screen_flow_login_list_detail_verify_history(env):
     lst = (await http.get(f"/api/agent/clusters?collection_point_id={mine['id']}", headers=h)).json()
     c = next(x for x in lst if x["id"] == cid)
     assert c["status"] == "READY" and c["total_qtl"] == 25 and c["collection_point_name"] == "D4 test yard"
+    assert round(c["yard_lat"], 2) == 12.55 and round(c["yard_lon"], 2) == 76.95 and c["verify_radius_m"] == 500   # the screen shows the distance
 
     d = (await http.get(f"/api/agent/clusters/{cid}", headers=h)).json()
     assert len(d["listings"]) == 5 and d["listings"][0]["ask_price"] == 3000.0
@@ -67,7 +68,7 @@ async def test_agent_screen_flow_login_list_detail_verify_history(env):
     form = {"grade": "A", "moisture_pct": "11.5", "notes": "dry", "lat": "12.55", "lon": "76.95"}
     assert (await http.post(f"/api/agent/clusters/{cid}/verify", headers=h, data={"grade": "A"}, files=photo())).json() == {"error": "LOCATION_REQUIRED"}
     far = await http.post(f"/api/agent/clusters/{cid}/verify", headers=h, data={**form, "lat": "12.9"}, files=photo())
-    assert far.status_code == 422 and far.json()["error"] == "TOO_FAR"
+    assert far.status_code == 422 and far.json()["error"] == "TOO_FAR" and far.json()["radius_m"] == 500 and far.json()["distance_m"] > 500
     ok = await http.post(f"/api/agent/clusters/{cid}/verify", headers=h, data=form, files=photo())
     body = ok.json()
     assert ok.status_code == 201 and body["status"] == "BIDDING" and body["grade"] == "A" and body["verification_id"]

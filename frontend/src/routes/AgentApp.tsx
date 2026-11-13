@@ -41,6 +41,47 @@ export interface Cluster {
   wavg_ask: number;
   grade: string | null;
   version: number;
+  yard_lat?: number;
+  yard_lon?: number;
+  verify_radius_m?: number;
+}
+
+/** Straight-line distance in metres between two GPS points. */
+function distanceM(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const R = 6371000;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const h = Math.sin(rad(bLat - aLat) / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(rad(bLon - aLon) / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+const fmtDistance = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`);
+
+/** Plain-language text for the error codes the server sends. */
+function explainError(err: any): string {
+  const code = err?.body?.error;
+  const radius = err?.body?.radius_m;
+  switch (code) {
+    case "TOO_FAR":
+      return `You are ${fmtDistance(Number(err.body.distance_m))} from the collection point. Verification must be done within ${fmtDistance(Number(radius ?? 500))} of it. Go to the yard and take the photo there.`;
+    case "STALE_CAPTURE":
+      return "This photo is more than 10 minutes old. Tap Retake photo and take a fresh one at the yard.";
+    case "LOW_ACCURACY":
+      return "The GPS fix is too weak (worse than 200 m). Move to open sky, wait a few seconds, and retake the photo.";
+    case "LOCATION_REQUIRED":
+      return "Location is required. Allow location access in the browser, then retake the photo.";
+    case "ALREADY_VERIFIED":
+      return "This cluster has already been verified.";
+    case "NOT_READY":
+      return "This cluster is not ready yet: it needs 20 quintals before it can be verified.";
+    case "FORBIDDEN":
+      return "This cluster belongs to a different FPO.";
+    case "PHOTO_TOO_LARGE":
+      return "The photo is too large. Retake it.";
+    case "BAD_PHOTO":
+      return "The photo could not be read. Retake it.";
+    default:
+      return err?.body?.message || err?.message || "Verification failed. Try again.";
+  }
 }
 
 export interface ClusterDetail extends Cluster {
@@ -423,10 +464,9 @@ export default function AgentApp(): React.ReactElement {
         setActiveClusterId(null);
       }, 1500);
     } catch (err: any) {
-      const msg = err?.body?.message || err?.message || "Verification failed. Try again.";
       setVerificationFeedback({
         type: "error",
-        message: msg,
+        message: explainError(err),
       });
     } finally {
       setSubmittingVerification(false);
@@ -876,6 +916,23 @@ export default function AgentApp(): React.ReactElement {
                   </label>
 
                   <LiveCamera preview={photoPreview} onCapture={handleCapture} onClear={handleClearPhoto} />
+                  {(() => {
+                    // after the photo: how far from the yard the GPS fix says we are
+                    const yard = clusters.find((c) => c.id === activeClusterId);
+                    if (!photoPreview || !captureMeta) return null;
+                    if (captureMeta.lat === undefined || captureMeta.lon === undefined)
+                      return <p className="text-[11px] text-amber-400">No GPS fix with this photo: allow location access and retake it.</p>;
+                    if (yard?.yard_lat === undefined || yard?.yard_lon === undefined) return null;
+                    const d = distanceM(captureMeta.lat, captureMeta.lon, yard.yard_lat, yard.yard_lon);
+                    const limit = yard.verify_radius_m ?? 500;
+                    const ok = d <= limit;
+                    return (
+                      <p className={`text-[11px] ${ok ? "text-emerald-400" : "text-rose-400"}`}>
+                        {ok ? "At the yard" : "Too far from the yard"}: {fmtDistance(d)} from {yard.collection_point_name} (limit {fmtDistance(limit)}
+                        {captureMeta.accuracy !== undefined ? `, GPS ±${Math.round(captureMeta.accuracy)} m` : ""})
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* Quality Grade Selection */}

@@ -1,0 +1,59 @@
+{
+  "records": [
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Maize",
+      "variety": "Common",
+      "arrival_date": "13/11/2026",
+      "min_price": "1980",
+      "max_price": "2230",
+      "modal_price": "2060"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Maize",
+      "variety": "Common",
+      "arrival_date": "12/11/2026",
+      "min_price": "1980",
+      "max_price": "2230",
+      "modal_price": "2070"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Maize",
+      "variety": "Common",
+      "arrival_date": "11/11/2026",
+      "min_price": "1980",
+      "max_price": "2230",
+      "modal_price": "2080"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Maize",
+      "variety": "Common",
+      "arrival_date": "10/11/2026",
+      "min_price": "1980",
+      "max_price": "2230",
+      "modal_price": "2090"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Maize",
+      "variety": "Common",
+      "arrival_date": "09/11/2026",
+      "min_price": "1980",
+      "max_price": "2230",
+      "modal_price": "2100"
+    }
+  ]
+}

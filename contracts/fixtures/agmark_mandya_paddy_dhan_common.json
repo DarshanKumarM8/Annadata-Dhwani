@@ -1,0 +1,59 @@
+{
+  "records": [
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "13/11/2026",
+      "min_price": "2100",
+      "max_price": "2350",
+      "modal_price": "2180"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "12/11/2026",
+      "min_price": "2100",
+      "max_price": "2350",
+      "modal_price": "2190"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "11/11/2026",
+      "min_price": "2100",
+      "max_price": "2350",
+      "modal_price": "2200"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "10/11/2026",
+      "min_price": "2100",
+      "max_price": "2350",
+      "modal_price": "2210"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Paddy(Dhan)(Common)",
+      "variety": "Common",
+      "arrival_date": "09/11/2026",
+      "min_price": "2100",
+      "max_price": "2350",
+      "modal_price": "2220"
+    }
+  ]
+}

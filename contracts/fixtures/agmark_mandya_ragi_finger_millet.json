@@ -1,0 +1,59 @@
+{
+  "records": [
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "13/11/2026",
+      "min_price": "3450",
+      "max_price": "3700",
+      "modal_price": "3530"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "12/11/2026",
+      "min_price": "3450",
+      "max_price": "3700",
+      "modal_price": "3540"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "11/11/2026",
+      "min_price": "3450",
+      "max_price": "3700",
+      "modal_price": "3550"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "10/11/2026",
+      "min_price": "3450",
+      "max_price": "3700",
+      "modal_price": "3560"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mandya",
+      "market": "Mandya",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "09/11/2026",
+      "min_price": "3450",
+      "max_price": "3700",
+      "modal_price": "3570"
+    }
+  ]
+}

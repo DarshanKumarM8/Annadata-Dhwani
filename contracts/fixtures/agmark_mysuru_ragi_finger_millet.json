@@ -1,0 +1,59 @@
+{
+  "records": [
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "13/11/2026",
+      "min_price": "3420",
+      "max_price": "3670",
+      "modal_price": "3500"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "12/11/2026",
+      "min_price": "3420",
+      "max_price": "3670",
+      "modal_price": "3510"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "11/11/2026",
+      "min_price": "3420",
+      "max_price": "3670",
+      "modal_price": "3520"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "10/11/2026",
+      "min_price": "3420",
+      "max_price": "3670",
+      "modal_price": "3530"
+    },
+    {
+      "state": "Karnataka",
+      "district": "Mysore",
+      "market": "Mysore",
+      "commodity": "Ragi (Finger Millet)",
+      "variety": "Common",
+      "arrival_date": "09/11/2026",
+      "min_price": "3420",
+      "max_price": "3670",
+      "modal_price": "3540"
+    }
+  ]
+}

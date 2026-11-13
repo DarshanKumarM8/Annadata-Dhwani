@@ -335,6 +335,17 @@ Examples:
         action="store_true",
         help="Print all available edge-tts voices and exit.",
     )
+    parser.add_argument(
+        "--text-fallback",
+        metavar="LANG",
+        default=None,
+        help=(
+            "If a clip has no text for the requested language, fall back to "
+            "this language's text instead of skipping.  "
+            "Example: --text-fallback en  (use English text to generate kn/hi "
+            "placeholder clips until a native speaker fills prompts.yaml)"
+        ),
+    )
     args = parser.parse_args()
 
     # --list-voices: no other args needed
@@ -418,6 +429,14 @@ Examples:
 
             # Look up the translation for this language
             text = entry.get(lang) or ""
+            if not text and args.text_fallback:
+                fallback_text = entry.get(args.text_fallback) or ""
+                if fallback_text:
+                    print(
+                        f"  [{done}/{total}] ⚠  {lang}/{clip_id}  "
+                        f"(no '{lang}' text — using '{args.text_fallback}' fallback)"
+                    )
+                    text = fallback_text
             if not text:
                 print(
                     f"  [{done}/{total}] ⚠  {lang}/{clip_id}  "

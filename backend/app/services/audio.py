@@ -116,9 +116,9 @@ def mix(clips: list[str], lang: str) -> str:
         params = _silent_params()
 
     # Atomic write: temp file → os.replace
-    # On Windows, os.replace can raise PermissionError if another thread already
-    # won the race and the out_path is briefly locked.  If out_path exists after
-    # the error the concurrent winner already wrote a valid file — accept that.
+    # On Windows, os.replace raises PermissionError when another thread already
+    # won the race and the destination is briefly locked.  Accept that outcome:
+    # the winner's file is valid.  Also clean up our now-redundant temp file.
     fd, tmp_path = tempfile.mkstemp(dir=MIX_DIR, suffix=".tmp.wav")
     try:
         with os.fdopen(fd, "wb") as raw_fd:
@@ -131,10 +131,16 @@ def mix(clips: list[str], lang: str) -> str:
         try:
             os.replace(tmp_path, out_path)
         except PermissionError:
-            # Windows: another thread just wrote the same file — that's fine.
+            # Windows: concurrent winner already wrote out_path — that's fine.
             if not out_path.exists():
-                raise  # genuinely broken, re-raise
+                raise  # genuinely missing → re-raise
+            # Clean up our redundant temp file (best-effort).
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
     except Exception:
+        # Write failed — clean up temp (best-effort, ignore second errors).
         try:
             os.unlink(tmp_path)
         except OSError:

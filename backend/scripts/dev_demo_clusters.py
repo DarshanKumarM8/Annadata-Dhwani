@@ -12,6 +12,7 @@ Run it against the dev database (not annadata_test). A running server picks the 
 """
 import argparse
 import asyncio
+import shutil
 import sys
 import uuid
 from pathlib import Path
@@ -19,6 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import cache, db  # noqa: E402
+from app.config import settings  # noqa: E402
 from app.services import clustering, events, views  # noqa: E402
 
 PHONES = [f"+91980000000{n}" for n in range(1, 9)]
@@ -66,6 +68,15 @@ async def seed(pool) -> None:
     async with pool.acquire() as c, c.transaction():
         await c.execute("""UPDATE clusters SET status = 'BIDDING', grade = 'B', version = version + 1,
                            bidding_ends_at = now() + interval '2 hours', updated_at = now() WHERE id = $1""", paddy)
+        yard = await c.fetchrow("""SELECT cp.geog, cp.id FROM clusters cl JOIN collection_points cp ON cp.id = cl.collection_point_id
+                                   WHERE cl.id = $1""", paddy)
+        agent = await c.fetchval("SELECT id FROM agents ORDER BY phone LIMIT 1")
+        name = f"{uuid.uuid4().hex}.jpg"
+        (settings.media_dir / "v").mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(Path(__file__).resolve().parents[1] / "app" / "static" / "sample_grain.jpg", settings.media_dir / "v" / name)
+        await c.execute("""INSERT INTO verifications (cluster_id, agent_id, grade, photo_path, geog, accuracy_m, distance_m, captured_at)
+                           VALUES ($1, $2, 'B', $3, $4, 10, 0, now()) ON CONFLICT (cluster_id) DO NOTHING""",
+                        paddy, agent, name, yard["geog"])
         seq = await events.emit(c, "cluster.updated", await views.cluster_view(c, paddy))
     await events.publish([seq])                       # open dashboards see it turn to BIDDING
 

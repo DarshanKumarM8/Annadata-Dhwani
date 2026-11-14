@@ -26,6 +26,13 @@ interface ClusterDetailProps {
     onDealStatusChange: (dealId: string, newStatus: DealStatus) => void;
 }
 
+const NO_PHOTO =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="80"><rect width="96" height="80" fill="#f1f5f9"/>' +
+            '<text x="48" y="44" font-family="sans-serif" font-size="11" fill="#94a3b8" text-anchor="middle">photo unavailable</text></svg>'
+    );
+
 function formatBasisLabel(basis: PriceBasis, priceDate: string): string {
     switch (basis) {
         case "DISTRICT_FRESH":
@@ -34,6 +41,8 @@ function formatBasisLabel(basis: PriceBasis, priceDate: string): string {
             return "7-day district average";
         case "STATE_7D":
             return "7-day state average";
+        case "STALE" as PriceBasis:
+            return `last mandi price (${priceDate})`;
         default:
             return priceDate;
     }
@@ -84,10 +93,11 @@ export const ClusterDetail: React.FC<ClusterDetailProps> = ({
 
     const tonnes = (detail.total_qtl / 10).toFixed(1);
     const countdown = formatCountdown(detail.bidding_ends_at, nowMs);
+    // the server's file name is unique per photo; ?v=<version> makes sure a re-verified cluster never shows a cached old picture
     const fullPhotoUrl = detail.photo_url
-        ? detail.photo_url.startsWith("http")
-            ? detail.photo_url
-            : `${apiBase}${detail.photo_url}`
+        ? `${detail.photo_url.startsWith("http") ? detail.photo_url : `${apiBase}${detail.photo_url}`}${
+              detail.photo_url.includes("?") ? "&" : "?"
+          }v=${detail.version}`
         : null;
 
     const activeProgress = liveProgress || myBid?.progress || null;
@@ -195,9 +205,17 @@ export const ClusterDetail: React.FC<ClusterDetailProps> = ({
                                 </div>
                             </div>
                         ) : (
-                            <p className="text-xs text-slate-500 italic">
-                                No mandi reference price available today.
-                            </p>
+                            <div className="space-y-1 pt-1">
+                                <p className="text-xs text-slate-500 italic">
+                                    No mandi price recorded for this crop yet.
+                                </p>
+                                <div className="text-sm">
+                                    <span className="text-xs text-slate-500 block">Gov MSP</span>
+                                    <span className="font-semibold text-slate-700">
+                                        {detail.msp ? formatINR(detail.msp) : "—"}
+                                    </span>
+                                </div>
+                            </div>
                         )}
 
                         <p className="text-[11px] text-slate-500 pt-1 border-t border-amber-200/60">
@@ -226,6 +244,10 @@ export const ClusterDetail: React.FC<ClusterDetailProps> = ({
                                 src={fullPhotoUrl}
                                 alt={`Cluster C-${detail.code} sample`}
                                 className="w-24 h-20 object-cover rounded-lg border border-slate-300 shrink-0"
+                                onError={(e) => {
+                                    e.currentTarget.onerror = null; // a missing file shows a tidy tile, not a broken-image icon
+                                    e.currentTarget.src = NO_PHOTO;
+                                }}
                             />
                         ) : (
                             <div className="w-24 h-20 rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-[11px] text-slate-400 text-center px-2 shrink-0">

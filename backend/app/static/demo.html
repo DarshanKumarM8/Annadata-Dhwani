@@ -142,7 +142,7 @@ document.getElementById("clusters").addEventListener("click", async e => {
     const a = b.dataset.a;
     if (a === "verify") {
       const fd = new FormData();
-      fd.append("photo", new Blob([new Uint8Array([255, 216, 255, 0])], { type: "image/jpeg" }), "sample.jpg");
+      fd.append("photo", await (await fetch("/demo/sample.jpg")).blob(), "sample.jpg");
       fd.append("grade", "A"); fd.append("moisture_pct", "11.5"); fd.append("accuracy_m", "10");
       fd.append("lat", c.collection_point.lat); fd.append("lon", c.collection_point.lon); fd.append("captured_at", new Date().toISOString());
       await api(`/api/agent/clusters/${id}/verification`, T.ag, { body: fd });

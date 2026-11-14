@@ -8,6 +8,7 @@ unless the keys match (district KA-MANDYA, crops ragi / paddy_common / maize).
   python scripts/dev_min_seed.py --reset        # delete this farmer's listings/sessions/tickets and the Redis session
 """
 import argparse
+import datetime
 import asyncio
 import json
 import os
@@ -98,7 +99,7 @@ async def main(floor: int | None, reset: bool) -> None:
             DO UPDATE SET modal_price = EXCLUDED.modal_price, afpp = EXCLUDED.afpp, price_date = EXCLUDED.price_date""",
                         float(floor), float(afpp))
         await r.set("floor:KA-MANDYA:ragi", json.dumps({"modal_price": float(floor), "afpp": afpp,
-                    "basis": "DISTRICT_FRESH", "price_date": "dev"}), ex=93600)
+                    "basis": "DISTRICT_FRESH", "price_date": datetime.date.today().isoformat()}), ex=93600)
         print(f"cached ragi floor: modal {floor}, afpp {afpp}")
     print("seed ok; farmer", PHONE)
     await c.close()

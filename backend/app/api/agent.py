@@ -88,6 +88,8 @@ async def verification(cid: str, photo: UploadFile = File(...), grade: str = For
     data = await photo.read(MAX_PHOTO + 1)
     if len(data) > MAX_PHOTO:
         raise ApiError(413, "PHOTO_TOO_LARGE")
+    if not (data[:3] == b"\xff\xd8\xff" or data[:8] == b"\x89PNG\r\n\x1a\n" or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")):
+        raise ApiError(422, "BAD_PHOTO")                       # not a JPEG, PNG or WebP (a web page or script must never be stored)
     fpo = await _fpo(who["sub"])
     seqs: list[int] = []
     try:

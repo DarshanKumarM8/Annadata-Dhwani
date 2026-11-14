@@ -38,6 +38,8 @@ async def test_reset_wipes_trade_data_and_rebuilds_the_three_demo_clusters():
         assert await cache.redis.get("sess:+910000000000") is None
         assert await cache.redis.get("rl:cb:+910000000000:day") is None
         assert await cache.redis.get("floor:KA-MANDYA:ragi")               # the price floor is cached again
+        assert await pool.fetchval("SELECT count(*) FROM price_floors WHERE crop_code IN ('maize','paddy_common')") == 2   # every crop has a reference
+        assert await pool.fetchval("SELECT afpp FROM price_floors WHERE crop_code = 'ragi'") == 3430                       # the guardrail demo value is kept
     finally:
         await cache.close()
         await db.close()

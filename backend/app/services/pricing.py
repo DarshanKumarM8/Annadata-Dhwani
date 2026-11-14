@@ -143,15 +143,34 @@ async def get_floor(
         return None
 
 
-async def refresh(pool, redis) -> int:
+async def refresh(pool, redis, live: bool = True) -> int:
     """Trigger price ingestion to refresh price floors.
 
     Returns the number of floors written.
     """
+    import importlib
+    import os
+    from pathlib import Path
     try:
-        from backend.scripts.ingest_prices import ingest_prices
-        summary = await ingest_prices(pool, redis, from_fixtures=True)
-        return summary.get("floors_written", 0)
+        try:                                               # the server runs from backend/, scripts/ is a plain folder there
+            ingest = importlib.import_module("scripts.ingest_prices")
+        except ImportError:
+            ingest = importlib.import_module("ingest_prices")
+        import asyncio
+        stored_basis = ("DISTRICT_FRESH", "DISTRICT_7D", "STATE_7D")    # a failed fetch returns NO_DATA entries that were not stored
+        floors: list = []
+        key = os.getenv("DATA_GOV_KEY", "")
+        if key and live:                                   # live Agmarknet data first, but never wait more than 30 s for it
+            try:
+                res = await asyncio.wait_for(ingest.ingest_prices(pool, redis, api_key=key), timeout=30)
+                floors = [f for f in res if f.get("basis") in stored_basis]
+            except Exception:
+                logger.warning("live price fetch failed, using the saved samples", exc_info=True)
+        if not floors:                                     # offline: the saved Agmarknet samples in contracts/fixtures
+            fixtures = str(Path(__file__).resolve().parents[3] / "contracts" / "fixtures")
+            res = await ingest.ingest_prices(pool, redis, fixtures_dir=fixtures)
+            floors = [f for f in res if f.get("basis") in stored_basis]
+        return len(floors)
     except Exception:
         logger.exception("prices refresh failed")
         return 0

@@ -64,6 +64,8 @@ async def main(empty: bool, keep_farmers: bool) -> None:
                 n += 1
         cache.load_scripts()
         print(f"wiped trade data and {n} redis keys ({time.time() - t0:.1f}s)")
+        from app.services import pricing                                              # a reference price for every crop, offline and fast
+        print(f"loaded {await pricing.refresh(pool, cache.redis, live=False)} mandi price floors from the saved samples")
     finally:
         await cache.close()
         await db.close()

@@ -117,6 +117,16 @@ export const Buyer: React.FC = () => {
     }
   }, [selectedId, fetchClusterDetail]);
 
+  // Quietly reload the open cluster (no loading screen): a verification brings a new photo and grade, a deal changes the lots.
+  const refreshDetail = useCallback(async (id: string) => {
+    try {
+      const res: ClusterDetailData = await api.get(`/api/clusters/${id}`);
+      setDetail((prev) => (prev && prev.id !== id ? prev : res));
+    } catch {
+      /* the next event or Refresh will try again */
+    }
+  }, []);
+
   const handleWsEvent = useCallback(
     (ev: WsEvent) => {
       const p = ev.payload;
@@ -132,6 +142,7 @@ export const Buyer: React.FC = () => {
               ? { ...prev, ...incoming }
               : prev
           );
+          if (selectedId && incoming.id === selectedId) refreshDetail(selectedId);
           break;
         }
         case "listing.created": {
@@ -230,7 +241,7 @@ export const Buyer: React.FC = () => {
         }
       }
     },
-    [selectedId, fetchClusterDetail, fetchBidsAndDeals]
+    [selectedId, fetchClusterDetail, fetchBidsAndDeals, refreshDetail]
   );
 
   const handleResync = useCallback(() => {

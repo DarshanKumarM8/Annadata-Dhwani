@@ -1,7 +1,11 @@
 """Tests must not depend on a developer's personal .env: pin the settings that change behaviour."""
+import os
+
 import pytest
 
 from app.config import settings
+
+os.environ["DATA_GOV_KEY"] = ""                     # tests never call the live price service
 
 
 @pytest.fixture(autouse=True, scope="session")

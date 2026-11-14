@@ -20,6 +20,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname
 SAMPLE = ROOT / "contracts" / "fixtures" / "sample.wav"
 
 
+async def _ensure_prices() -> None:
+    """A fresh database has no mandi prices, so every reference-price box would be empty: load them once at start."""
+    from .services import pricing
+    try:
+        if not await db.pool.fetchval("SELECT count(*) FROM mandi_prices"):
+            logging.getLogger("startup").info("no mandi prices yet: loaded %s price floors", await pricing.refresh(db.pool, cache.redis))
+    except Exception:
+        logging.getLogger("startup").warning("price load at start failed", exc_info=True)
+
+
 async def _warm_prompts() -> None:
     """Mix the prompts every call starts with, so the first caller of the day does not wait for audio to be built."""
     from .engine.audio_shim import mix_url
@@ -41,12 +51,14 @@ async def lifespan(app: FastAPI):
     if settings.provider == "exotel" and not settings.public_base_url.startswith("https://"):
         logging.getLogger("startup").warning("PUBLIC_BASE_URL=%s is not an https address: Exotel cannot fetch the prompts", settings.public_base_url)
     warm = asyncio.create_task(_warm_prompts())
+    prices = asyncio.create_task(_ensure_prices())
     sweep = asyncio.create_task(sweeper.run())
     hub = asyncio.create_task(ws.hub.run())
     auctions = asyncio.create_task(bidding.run())
     worker = asyncio.create_task(jobs.run())
     yield
     warm.cancel()
+    prices.cancel()
     sweep.cancel()
     hub.cancel()
     auctions.cancel()
@@ -89,6 +101,12 @@ async def audio_mix(name: str):
     return FileResponse(SAMPLE, media_type="audio/wav")
 
 
+@app.get("/demo/sample.jpg", include_in_schema=False)
+async def demo_sample_photo():
+    """A real grain-sample photo for the demo board's "Agent verifies sample" button (there is no camera on that page)."""
+    return FileResponse(Path(__file__).parent / "static" / "sample_grain.jpg", media_type="image/jpeg")
+
+
 @app.get("/demo", include_in_schema=False)
 async def demo_board():
     """One-page live board for judges: clusters, bids, deals and the event feed. Stopgap until the real UIs merge."""
@@ -99,7 +117,7 @@ async def demo_board():
 async def media(name: str):
     f = settings.media_dir / "v" / name
     if f.is_file() and f.resolve().parent == (settings.media_dir / "v").resolve():
-        return FileResponse(f)
+        return FileResponse(f, headers={"Cache-Control": "public, max-age=31536000, immutable"})   # unique file name per photo
     return FileResponse(ROOT / "contracts" / "fixtures" / "sample.svg", media_type="image/svg+xml")
 
 

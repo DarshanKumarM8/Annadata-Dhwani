@@ -92,9 +92,15 @@ class PgDeps:
                 "ask": float(r["ask_price"]), "farmer_id": str(r["farmer_id"]), "lang": r["lang"],
                 "district_code": r["district_code"]}
 
-    async def record_offer_response(self, bid_id: str, listing_id: str, response: str) -> None:
+    async def record_offer_response(self, bid_id: str, listing_id: str, response: str) -> bool:
+        """True if the answer is on record (stored now, or the same answer was already stored: a repeated key).
+        False if the round had already settled, so this late answer counts for nothing."""
         from ..services import bidding
-        await bidding.record_response(self.pool, bid_id, listing_id, response)
+        if await bidding.record_response(self.pool, bid_id, listing_id, response):
+            return True
+        now = await self.pool.fetchval("SELECT response FROM bid_responses WHERE bid_id = $1::uuid AND listing_id = $2::uuid",
+                                       bid_id, listing_id)
+        return now == response
 
     async def commit_listing(self, s: dict) -> int:
         return await clustering.commit_listing(self.pool, s)

@@ -245,9 +245,13 @@ async def tick(pool) -> None:
     """Scheduler pass: close due auctions, settle confirmation rounds past their deadline."""
     for r in await pool.fetch("SELECT id::text FROM clusters WHERE status = 'BIDDING' AND bidding_ends_at <= now()"):
         await close_auction(pool, r["id"])
+    # A farmer who is still on the phone when the window ends gets up to 2 more minutes to finish: an answer given a few
+    # seconds after the deadline must not be thrown away (and the round must not fail under a caller who is mid-confirmation).
     for r in await pool.fetch("""SELECT b.id::text FROM bids b JOIN clusters c ON c.best_bid_id = b.id
-                                 WHERE b.status = 'CONFIRMING' AND c.status = 'CONFIRMING'
-                                 AND b.confirm_deadline <= now()"""):
+                                 WHERE b.status = 'CONFIRMING' AND c.status = 'CONFIRMING' AND b.confirm_deadline <= now()
+                                 AND (b.confirm_deadline + interval '120 seconds' <= now() OR NOT EXISTS (
+                                      SELECT 1 FROM call_jobs j WHERE j.kind = 'BID_OFFER' AND j.status = 'IN_CALL'
+                                      AND j.payload->>'bid_id' = b.id::text))"""):
         await resolve_round(pool, r["id"], deadline_passed=True)
 
 

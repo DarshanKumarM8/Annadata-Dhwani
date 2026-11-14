@@ -84,3 +84,25 @@ async def test_failed_store_does_not_claim_acceptance():
     a, s = await key(d, s, "1")
     a, s = await key(d, s, "1")
     assert a.state == "BYE" and a.clips == ["bye"]                        # never plays "Accepted"
+
+
+class LateDeps(OfferDeps):
+    """The round settled while the farmer was on the call: the answer is not stored."""
+    async def record_offer_response(self, bid_id, listing_id, response):
+        self.answers.append((bid_id, listing_id, response))
+        return False
+
+
+async def test_a_late_accept_never_plays_accepted():
+    d = LateDeps()
+    a, s = await start(d)
+    a, s = await key(d, s, "1")
+    a, s = await key(d, s, "1")
+    assert a.state == "BYE" and a.hangup and a.clips == ["offer_closed"]
+
+
+async def test_a_late_reject_also_says_the_offer_closed():
+    d = LateDeps()
+    a, s = await start(d)
+    a, s = await key(d, s, "2")
+    assert a.state == "BYE" and a.clips == ["offer_closed"]

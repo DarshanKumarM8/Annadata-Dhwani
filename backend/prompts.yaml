@@ -177,6 +177,9 @@ offer_done:
 offer_rejected:
   en: You rejected the offer. Your crop stays listed. Goodbye.
   reviewed: false
+offer_closed:
+  en: Sorry, this offer has already closed. Your crop stays listed. Goodbye.
+  reviewed: false
 d_0:
   en: zero
   reviewed: false

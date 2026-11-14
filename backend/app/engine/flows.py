@@ -72,6 +72,8 @@ def clips_for(state: str, s: dict) -> list[str]:
     if state == "DONE_OFFER":
         return ["offer_done"]
     if state == "BYE":
+        if d.get("offer_closed"):
+            return ["offer_closed"]
         return ["offer_rejected"] if d.get("offer_rejected") else ["bye"]
     raise ValueError(f"no prompt for state {state}")
 

@@ -107,15 +107,16 @@ async def _retry(deps, s: dict, invalid: bool) -> Action:
     return flows.build(s["state"], s, ["bad_input"] if invalid else None)
 
 
-async def _answer(deps, s: dict, response: str) -> bool:
-    """Record the farmer's ACCEPT/REJECT (first answer wins). False if it could not be stored."""
+async def _answer(deps, s: dict, response: str) -> str:
+    """Record the farmer's ACCEPT/REJECT (first answer wins). 'ok', 'closed' (the round had already settled: the answer counts
+    for nothing and the farmer must be told so) or 'error' (could not be stored)."""
     d = s["data"]
     try:
-        await deps.record_offer_response(d["bid_id"], d["listing_id"], response)
-        return True
+        stored = await deps.record_offer_response(d["bid_id"], d["listing_id"], response)
     except Exception:
         log.exception("record_offer_response failed")
-        return False
+        return "error"
+    return "closed" if stored is False else "ok"
 
 
 async def _apply(deps, s: dict, digits: str) -> Action | None:
@@ -210,17 +211,22 @@ async def _apply(deps, s: dict, digits: str) -> Action | None:
         if one == "9":
             return await _enter(deps, s, "OFFER")
         if one == "2":
-            if not await _answer(deps, s, "REJECT"):
-                return await _enter(deps, s, "BYE")
-            d["offer_rejected"] = True
+            outcome = await _answer(deps, s, "REJECT")
+            if outcome == "ok":
+                d["offer_rejected"] = True
+            elif outcome == "closed":
+                d["offer_closed"] = True
             return await _enter(deps, s, "BYE")
         return None
 
     if st == "OFFER_CONFIRM":              # only an explicit 1 here binds the farmer
         if one == "1":
-            if not await _answer(deps, s, "ACCEPT"):
-                return await _enter(deps, s, "BYE")
-            return await _enter(deps, s, "DONE_OFFER")
+            outcome = await _answer(deps, s, "ACCEPT")
+            if outcome == "ok":
+                return await _enter(deps, s, "DONE_OFFER")
+            if outcome == "closed":                              # too late: never say "Accepted" for an answer that was not stored
+                d["offer_closed"] = True
+            return await _enter(deps, s, "BYE")
         if one == "2":
             return await _enter(deps, s, "OFFER")
         return None

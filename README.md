@@ -98,13 +98,13 @@ D5 (the trade, end to end): agent login `POST /api/auth/agent/login` (seeded `+9
 Admin (login `admin@demo.test`): `POST /api/admin/clusters/{id}/close-auction`, `GET /api/ops/calls`, `GET /api/ops/dtmf`, the Redis flush.
 The farmers' accept/reject round is not wired to phone calls yet: in the demo use
 `POST /api/admin/clusters/{id}/simulate-farmers` with `{"accept": true}` (or `{"accepted_lots": 3}`); if nobody answers, the round
-settles at the deadline (90 s in demo mode). Deal created when accepted quantity reaches the bid's minimum; otherwise the bid fails,
+settles at the deadline (3 minutes in demo mode, plus up to 2 more for a farmer still on the phone). Deal created when accepted quantity reaches the bid's minimum; otherwise the bid fails,
 the cluster returns to BIDDING once, then NO_BID.
 
 D6 (farmers' confirmation calls): closing an auction queues one `BID_OFFER` call per lot in `call_jobs`. The worker (1 s tick) rings the
 farmer's phone, at most 5 calls at once, skips anyone already on a call, honours `DAILY_CALL_BUDGET`, and retries an unanswered
 call after 20/40/60 s in demo mode (2/10/30 min otherwise). On `/sim` the phone rings like a callback; answering reads the offer:
-1 then 1 accepts, 2 rejects, 9 repeats. When every lot has answered (or the 90 s deadline passes) the round settles into a deal or a
+1 then 1 accepts, 2 rejects, 9 repeats. When every lot has answered (or the 3-minute deadline passes) the round settles into a deal or a
 failed bid. `simulate-farmers` still exists as a backup that skips the phone calls. `telephony/base.py` is the provider interface
 that the Exotel adapter (D7) plugs into.
 

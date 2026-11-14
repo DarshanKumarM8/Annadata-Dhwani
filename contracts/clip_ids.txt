@@ -96,6 +96,7 @@ offer_options
 offer_confirm
 offer_done
 offer_rejected
+offer_closed
 d_0
 d_1
 d_2

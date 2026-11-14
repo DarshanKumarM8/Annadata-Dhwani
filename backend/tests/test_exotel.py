@@ -334,11 +334,16 @@ async def test_the_menu_is_repeated_when_nobody_presses_a_key_but_the_closing_pr
     (phone, _), = await setup_farmers(1)
     sid = (await start_callback(pool, http, phone))["provider_call_id"]
     g = await gather(http, sid, 1)
-    assert g["repeat_menu"] == 2 and g["input_timeout"] > 1                       # Exotel's default would hang up after one wait
-    for step, d in enumerate(["1", "1", "1", "17", "1", "3600", "1"], start=1):    # finish a listing
-        await digits(http, sid, step, d)
-        last = await gather(http, sid, step + 1)
-    assert last["repeat_menu"] == 0 and last["input_timeout"] == 1                 # the closing prompt plays once
+    assert "repeat_menu" not in g and g["input_timeout"] > 1                       # off by default: the reply that first worked
+    object.__setattr__(settings, "exotel_repeat_menu", 2)
+    try:
+        assert (await http.get(url("gather"), params={"CallSid": sid, "step": 2})).json()["repeat_menu"] == 2   # opt-in
+        for step, d in enumerate(["1", "1", "1", "17", "1", "3600", "1"], start=1):    # finish a listing
+            await digits(http, sid, step, d)
+            last = await gather(http, sid, step + 1)
+        assert "repeat_menu" not in last and last["input_timeout"] == 1                # the closing prompt plays once
+    finally:
+        object.__setattr__(settings, "exotel_repeat_menu", 0)
 
 
 async def test_a_call_exotel_starts_itself_is_served_for_a_registered_team_farmer(env):

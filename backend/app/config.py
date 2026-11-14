@@ -57,6 +57,9 @@ class Settings:
     unknown_cb_ttl_s: int = int(os.getenv("UNKNOWN_CB_TTL_S", "60" if os.getenv("DEMO_MODE", "1") == "1" else "86400"))
     # real numbers the server may dial (last 10 digits of each TEAM_PHONES entry). Empty = no restriction.
     team_phones: frozenset = frozenset(re.sub(r"\D", "", p)[-10:] for p in re.split(r"[,;\s]+", os.getenv("TEAM_PHONES", "")) if p)
+    # 0 = send exactly the Gather reply that worked on the first full call. 2 = ask Exotel to repeat the menu twice when nobody
+    # presses a key (documented by Exotel, but not yet proven with our flow): try it with EXOTEL_REPEAT_MENU=2 and read the trace.
+    exotel_repeat_menu: int = int(os.getenv("EXOTEL_REPEAT_MENU", "0"))
     verify_radius_m: int = int(os.getenv("VERIFY_RADIUS_M", "500"))
 
 

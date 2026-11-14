@@ -88,12 +88,14 @@ def _absolute(url: str) -> str:
 def _gather_json(a: Action) -> dict:
     """Terminal prompts play once: the Gather waits 1 s for a key and the following Passthru ends the call."""
     closing = a.hangup or not a.max_digits
-    return {"gather_prompt": {"audio_url": _absolute(mix_url(a.clips, a.lang))},
-            "max_input_digits": a.max_digits or 1, "finish_on_key": a.finish_on_key or "#",
-            "input_timeout": 1 if closing else a.timeout_s,
-            # Exotel's default is repeat_menu=0: a farmer who has not pressed a key by the timeout is hung up on.
-            # Repeating the menu twice gives people time to find the key (the closing prompt is never repeated).
-            "repeat_menu": 0 if closing else 2}
+    out = {"gather_prompt": {"audio_url": _absolute(mix_url(a.clips, a.lang))},
+           "max_input_digits": a.max_digits or 1, "finish_on_key": a.finish_on_key or "#",
+           "input_timeout": 1 if closing else a.timeout_s}
+    # Exotel's default is repeat_menu=0: a farmer who has not pressed a key by the timeout is hung up on. EXOTEL_REPEAT_MENU=2
+    # repeats the menu twice; it is off unless asked for, and never applied to the closing prompt.
+    if not closing and settings.exotel_repeat_menu > 0:
+        out["repeat_menu"] = settings.exotel_repeat_menu
+    return out
 
 
 async def _remember(sid: str, a: Action) -> None:
